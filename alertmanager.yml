@@ -11,7 +11,7 @@ route:
 receivers:
   - name: "discord"
     webhook_configs:
-      - url: "${DISCORD_WEBHOOK_URL}"
+      - url: "https://discord.com/api/webhooks/REPLACE_ME/REPLACE_ME"
         send_resolved: true
         http_config: {}
         title: '{{ if eq .Status "firing" }}🔥 ALERT{{ else }}✅ RESOLVED{{ end }}: {{ .CommonLabels.alertname }}'

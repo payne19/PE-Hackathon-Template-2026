@@ -27,7 +27,7 @@ def _url_to_dict(url_obj):
 @urls_bp.route("/shorten", methods=["POST"])
 def shorten():
     data = request.get_json(silent=True)
-    if not data:
+    if data is None:
         return jsonify(error="Request body must be JSON"), 400
 
     original_url = data.get("original_url", "").strip()
