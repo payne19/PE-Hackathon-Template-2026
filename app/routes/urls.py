@@ -120,9 +120,13 @@ def list_urls():
     page = request.args.get("page", type=int)
     per_page = min(request.args.get("per_page", 20, type=int), 100)
 
+    is_active = request.args.get("is_active")
+
     query = URL.select()
     if user_id:
         query = query.where(URL.user_id == user_id)
+    if is_active is not None:
+        query = query.where(URL.is_active == (is_active.lower() in ("true", "1", "yes")))
     query = query.order_by(URL.created_at.desc())
 
     if page:
