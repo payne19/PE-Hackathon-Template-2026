@@ -91,7 +91,10 @@ def _get_cached_url(code):
 
 @urls_bp.route("/<string:code>", methods=["GET"])
 def redirect_short(code):
-    cached = cache.get(f"url:{code}")
+    try:
+        cached = cache.get(f"url:{code}")
+    except Exception:
+        cached = None
     if cached is None:
         try:
             url_obj = URL.get(URL.short_code == code)
@@ -100,7 +103,10 @@ def redirect_short(code):
                 "original_url": url_obj.original_url,
                 "is_active": url_obj.is_active,
             }
-            cache.set(f"url:{code}", cached, timeout=300)
+            try:
+                cache.set(f"url:{code}", cached, timeout=300)
+            except Exception:
+                pass
         except URL.DoesNotExist:
             return jsonify(error="Short code not found"), 404
 
@@ -116,6 +122,11 @@ def redirect_short(code):
     )
 
     return redirect(cached["original_url"], code=302)
+
+
+@urls_bp.route("/urls/<string:code>/redirect", methods=["GET"])
+def redirect_by_url_path(code):
+    return redirect_short(code)
 
 
 @urls_bp.route("/urls", methods=["GET"])
@@ -251,7 +262,10 @@ def deactivate_url(url_id):
     url.updated_at = datetime.now(timezone.utc)
     url.save()
 
-    cache.delete(f"url:{url.short_code}")
+    try:
+        cache.delete(f"url:{url.short_code}")
+    except Exception:
+        pass
 
     Event.create(
         url=url,
