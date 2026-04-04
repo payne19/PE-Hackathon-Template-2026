@@ -30,17 +30,22 @@ def shorten():
     if data is None:
         return jsonify(error="Request body must be JSON"), 400
 
-    original_url = data.get("original_url", "").strip()
-    if not original_url:
-        return jsonify(error="original_url is required"), 422
+    raw_url = data.get("original_url")
+    if not isinstance(raw_url, str) or not raw_url.strip():
+        return jsonify(error="original_url is required and must be a string"), 422
 
+    original_url = raw_url.strip()
     if not original_url.startswith(("http://", "https://")):
         return jsonify(error="original_url must start with http:// or https://"), 422
 
-    title = data.get("title", "").strip() or None
+    title = data.get("title") or None
+    if isinstance(title, str):
+        title = title.strip() or None
     user_id = data.get("user_id") or None
 
-    short_code = data.get("short_code", "").strip() or None
+    short_code = data.get("short_code") or None
+    if isinstance(short_code, str):
+        short_code = short_code.strip() or None
     if short_code:
         if URL.select().where(URL.short_code == short_code).exists():
             return jsonify(error="short_code already in use"), 409
@@ -131,13 +136,9 @@ def list_urls():
     page = request.args.get("page", type=int)
     per_page = min(request.args.get("per_page", 20, type=int), 100)
 
-    is_active = request.args.get("is_active")
-
     query = URL.select()
     if user_id:
         query = query.where(URL.user_id == user_id)
-    if is_active is not None:
-        query = query.where(URL.is_active == (is_active.lower() in ("true", "1", "yes")))
     query = query.order_by(URL.created_at.desc())
 
     if page:
@@ -152,16 +153,21 @@ def create_url():
     if data is None:
         return jsonify(error="Request body must be JSON"), 400
 
-    original_url = data.get("original_url", "").strip()
-    if not original_url:
-        return jsonify(error="original_url is required"), 422
+    raw_url = data.get("original_url")
+    if not isinstance(raw_url, str) or not raw_url.strip():
+        return jsonify(error="original_url is required and must be a string"), 422
 
+    original_url = raw_url.strip()
     if not original_url.startswith(("http://", "https://")):
         return jsonify(error="original_url must start with http:// or https://"), 422
 
     user_id = data.get("user_id")
-    title = data.get("title", "").strip() or None
-    short_code = data.get("short_code", "").strip() or None
+    title = data.get("title") or None
+    if isinstance(title, str):
+        title = title.strip() or None
+    short_code = data.get("short_code") or None
+    if isinstance(short_code, str):
+        short_code = short_code.strip() or None
 
     if user_id is not None:
         from app.models.user import User
@@ -229,10 +235,7 @@ def update_url(url_id):
     if "is_active" in data:
         url.is_active = bool(data["is_active"])
         if not url.is_active:
-            try:
-                cache.delete(f"url:{url.short_code}")
-            except Exception:
-                pass
+            cache.delete(f"url:{url.short_code}")
 
     url.updated_at = datetime.now(timezone.utc)
     url.save()

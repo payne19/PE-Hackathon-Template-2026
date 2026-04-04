@@ -25,3 +25,22 @@ CI runs on every push and pull request. All 64 tests pass.
 CI automatically blocks merges when tests fail. The red check below shows a build blocked due to a failing test — no broken code can reach production.
 
 ![Blocked Deploy](screenshots/silver-blocked-deploy.png.png)
+
+---
+
+## Gold Tier: The Immortal
+
+### Graceful Failure — Garbage Data → Polite Error
+Sending an integer instead of a URL string to `POST /shorten` returns a clean JSON error, never a Python stack trace.
+
+![Graceful Failure](screenshots/gold-graceful-failure.png)
+
+### Chaos Mode — Container Restart Policy
+All app containers (`app1`, `app2`, `app3`) are configured with `restart: always` in `docker-compose.yml`. When any container crashes, Docker automatically restarts it. Nginx routes traffic to the other two instances while the crashed container recovers — users see no downtime.
+
+See [docker-compose.yml](../docker-compose.yml) line 49: `restart: always`
+
+### Failure Mode Documentation
+Full failure mode reference covering all known failure scenarios, automatic recovery behaviour, and manual recovery steps:
+
+[docs/failure-modes.md](failure-modes.md)
