@@ -101,22 +101,22 @@ class TestErrorHandlers:
     def test_400_handler_via_http_exception(self, app):
         from werkzeug.exceptions import BadRequest
         with app.test_request_context("/"):
-            rv = app.handle_http_exception(BadRequest())
-        assert rv.status_code == 400
+            rv, status_code = app.handle_http_exception(BadRequest())
+        assert status_code == 400
         assert "error" in rv.get_json()
 
     def test_409_handler_via_http_exception(self, app):
         from werkzeug.exceptions import Conflict
         with app.test_request_context("/"):
-            rv = app.handle_http_exception(Conflict())
-        assert rv.status_code == 409
+            rv, status_code = app.handle_http_exception(Conflict())
+        assert status_code == 409
         assert "error" in rv.get_json()
 
     def test_500_handler_via_http_exception(self, app):
         from werkzeug.exceptions import InternalServerError
         with app.test_request_context("/"):
-            rv = app.handle_http_exception(InternalServerError())
-        assert rv.status_code == 500
+            rv, status_code = app.handle_http_exception(InternalServerError())
+        assert status_code == 500
         assert "error" in rv.get_json()
 
 
