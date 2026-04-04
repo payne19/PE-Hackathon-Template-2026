@@ -1,7 +1,7 @@
 from peewee import CharField, DateTimeField, ForeignKeyField, TextField
 
 from app.database import BaseModel
-from app.models.url import Url
+from app.models.url import URL
 from app.models.user import User
 
 
@@ -9,8 +9,8 @@ class Event(BaseModel):
     class Meta:
         table_name = "events"
 
-    url = ForeignKeyField(Url, backref="events", column_name="url_id")
-    user = ForeignKeyField(User, backref="events", column_name="user_id")
-    event_type = CharField()  # created, updated, deleted
-    timestamp = DateTimeField()
+    url = ForeignKeyField(URL, backref="events", null=True)
+    user = ForeignKeyField(User, backref="events", null=True)
+    event_type = CharField(max_length=50)
+    timestamp = DateTimeField(null=True)
     details = TextField(null=True)
