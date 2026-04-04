@@ -1,7 +1,10 @@
 import os
+import tempfile
 import pytest
 
 os.environ.setdefault("DATABASE_NAME", "hackathon_db")
+
+_TEST_DB_PATH = os.path.join(tempfile.gettempdir(), "hackathon_test.db")
 
 
 @pytest.fixture(scope="session")
@@ -14,7 +17,7 @@ def app():
 
     _app = create_app(test_config={"TESTING": True, "CACHE_TYPE": "SimpleCache"})
 
-    test_db = init_test_db()
+    test_db = init_test_db(path=_TEST_DB_PATH)
     with _app.app_context():
         test_db.create_tables([User, URL, Event], safe=True)
 
@@ -24,7 +27,7 @@ def app():
         test_db.drop_tables([User, URL, Event])
     test_db.close()
     try:
-        os.remove("/tmp/hackathon_test.db")
+        os.remove(_TEST_DB_PATH)
     except FileNotFoundError:
         pass
 
