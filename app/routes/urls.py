@@ -131,7 +131,6 @@ def redirect_by_url_path(code):
 
 @urls_bp.route("/urls", methods=["GET"])
 def list_urls():
-    from app.models.user import User
     user_id = request.args.get("user_id", type=int)
     page = request.args.get("page", type=int)
     per_page = min(request.args.get("per_page", 20, type=int), 100)
@@ -231,7 +230,13 @@ def update_url(url_id):
     if "title" in data:
         url.title = data["title"]
     if "original_url" in data:
-        url.original_url = data["original_url"]
+        new_url = data["original_url"]
+        if not isinstance(new_url, str) or not new_url.strip():
+            return jsonify(error="original_url must be a non-empty string"), 422
+        new_url = new_url.strip()
+        if not new_url.startswith(("http://", "https://")):
+            return jsonify(error="original_url must start with http:// or https://"), 422
+        url.original_url = new_url
     if "is_active" in data:
         url.is_active = bool(data["is_active"])
         if not url.is_active:
