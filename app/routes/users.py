@@ -11,11 +11,14 @@ users_bp = Blueprint("users", __name__, url_prefix="/users")
 
 
 def _user_dict(user):
+    ca = user.created_at
+    if ca and hasattr(ca, "strftime"):
+        ca = ca.strftime("%Y-%m-%dT%H:%M:%S")
     return {
         "id": user.id,
         "username": user.username,
         "email": user.email,
-        "created_at": user.created_at.strftime("%Y-%m-%dT%H:%M:%S") if user.created_at else None,
+        "created_at": ca,
     }
 
 
@@ -93,6 +96,15 @@ def update_user(user_id):
         return jsonify(error="Email already exists"), 409
 
     return jsonify(_user_dict(user))
+
+
+@users_bp.route("/<int:user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    user = User.get_or_none(User.id == user_id)
+    if user is None:
+        return jsonify(error="User not found"), 404
+    user.delete_instance(recursive=True)
+    return jsonify(message="User deleted", id=user_id)
 
 
 @users_bp.route("/bulk", methods=["POST"])
