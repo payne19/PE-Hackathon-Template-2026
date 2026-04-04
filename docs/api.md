@@ -76,22 +76,18 @@ curl -L http://localhost/aB3xYz
 ---
 
 ### `GET /urls`
-List all active URLs (paginated).
+List all URLs. Supports optional pagination and filtering.
 
 **Query params**
-| Param | Default | Max |
-|---|---|---|
-| `page` | 1 | — |
-| `per_page` | 20 | 100 |
+| Param | Default | Max | Description |
+|---|---|---|---|
+| `page` | — | — | If provided, paginates results |
+| `per_page` | 20 | 100 | Results per page (only used when `page` is set) |
+| `user_id` | — | — | Filter by user ID |
 
-**Response 200**
+**Response 200** — plain array of URL objects
 ```json
-{
-  "total": 1500,
-  "page": 1,
-  "per_page": 20,
-  "results": [ { ...url object... } ]
-}
+[ { ...url object... } ]
 ```
 
 ---

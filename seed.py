@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import db
-from app.models import User, Url, Event
+from app.models import User, URL, Event
 from peewee import PostgresqlDatabase
 
 database = PostgresqlDatabase(
@@ -40,7 +40,7 @@ def load_urls():
     path = os.path.join(SEED_DIR, "urls.csv")
     with open(path, newline="") as f:
         for row in csv.DictReader(f):
-            Url.get_or_create(
+            URL.get_or_create(
                 id=int(row["id"]),
                 defaults={
                     "user_id": int(row["user_id"]),
