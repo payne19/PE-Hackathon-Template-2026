@@ -106,38 +106,5 @@ services:
       - app2
       - app3
 
-  prometheus:
-    image: prom/prometheus:v2.52.0
-    restart: always
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./alertmanager_rules.yml:/etc/prometheus/alertmanager_rules.yml:ro
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.retention.time=7d"
-
-  alertmanager:
-    image: prom/alertmanager:v0.27.0
-    restart: always
-    ports:
-      - "9093:9093"
-    volumes:
-      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-
-  grafana:
-    image: grafana/grafana:11.0.0
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_USERS_ALLOW_SIGN_UP: "false"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-
 volumes:
   pgdata:
-  grafana_data:

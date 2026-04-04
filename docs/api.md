@@ -16,13 +16,6 @@ Returns service liveness.
 
 ---
 
-## Metrics
-
-### `GET /metrics`
-Prometheus-format metrics (request counts, latency histograms, error rates).
-
----
-
 ## URL Shortener
 
 ### `POST /shorten`

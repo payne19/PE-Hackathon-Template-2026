@@ -23,7 +23,6 @@
 3. Check Redis connectivity: `docker compose exec redis redis-cli ping` → should return `PONG`
 4. If DB is down: `docker compose up -d db` and wait for health check to pass.
 5. If Redis is down: `docker compose up -d redis` — app falls back to PostgreSQL automatically.
-6. Check Grafana dashboard for error rate trend: `http://localhost:3000`
 
 ---
 
@@ -53,8 +52,6 @@
 ---
 
 ## Manual Log Access (no SSH)
-
-**Via Grafana:** http://localhost:3000 (admin / admin)
 
 **Via Docker CLI:**
 ```bash

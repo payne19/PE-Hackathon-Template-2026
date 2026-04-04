@@ -2,29 +2,25 @@
 
 A production-grade URL shortener built for the MLH Production Engineering Hackathon.
 
-**Stack:** Flask · Peewee ORM · PostgreSQL · Redis · Nginx · Prometheus · Grafana · Docker Compose
+**Stack:** Flask · Peewee ORM · PostgreSQL · Redis · Nginx · PgBouncer · Docker Compose
 
 ## Architecture
 
 ```
                         ┌──────────────────────────────┐
-Internet ──▶ Nginx :80  │  round-robin load balancer   │
-                        └──────┬───────────┬───────────┘
-                               │           │
-                          app1:5000   app2:5000
-                          (Gunicorn 4w) (Gunicorn 4w)
-                               │           │
-                        ┌──────▼───────────▼──────────┐
-                        │   PostgreSQL :5432           │
-                        └─────────────────────────────┘
-                        ┌─────────────────────────────┐
-                        │   Redis :6379  (URL cache)  │
-                        └─────────────────────────────┘
-                        ┌─────────────────────────────┐
-                        │   Prometheus :9090           │
-                        │   Grafana     :3000          │
-                        │   Alertmanager :9093         │
-                        └─────────────────────────────┘
+Internet ──▶ Nginx :80  │  least_conn load balancer    │
+                        └───┬───────────┬──────────┬───┘
+                            │           │          │
+                       app1:5000   app2:5000   app3:5000
+                       (gthread)   (gthread)   (gthread)
+                            │           │          │
+                        ┌───▼───────────▼──────────▼───┐
+                        │   PgBouncer (conn pool)      │
+                        │   PostgreSQL :5432            │
+                        └──────────────────────────────┘
+                        ┌──────────────────────────────┐
+                        │   Redis :6379  (URL cache)   │
+                        └──────────────────────────────┘
 ```
 
 ## Endpoints
@@ -32,7 +28,6 @@ Internet ──▶ Nginx :80  │  round-robin load balancer   │
 | Method | Path | Description |
 |---|---|---|
 | GET | `/health` | Liveness check → `{"status":"ok"}` |
-| GET | `/metrics` | Prometheus metrics |
 | POST | `/shorten` | Create a short URL |
 | GET | `/<code>` | Redirect (cached in Redis) |
 | GET | `/urls` | List active URLs (paginated) |
@@ -78,7 +73,7 @@ Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 ```bash
 # 1. Clone & configure
 git clone <repo-url> && cd PE-Hackathon-Template-2026
-cp .env.example .env          # edit DATABASE_PASSWORD / DISCORD_WEBHOOK_URL if needed
+cp .env.example .env          # edit DATABASE_PASSWORD if needed
 
 # 2. Build and start everything
 docker compose up --build -d
@@ -90,12 +85,6 @@ docker compose exec app1 uv run load_data.py
 curl http://localhost/health
 # → {"status":"ok"}
 
-curl http://localhost/metrics
-# → Prometheus metrics
-
-# 5. Dashboards
-# Grafana:    http://localhost:3000  (admin / admin)
-# Prometheus: http://localhost:9090
 ```
 
 ### Chaos Demo (Reliability Gold)
