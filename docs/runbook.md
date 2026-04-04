@@ -1,5 +1,40 @@
 # Runbook — URL Shortener
 
+## Error Handling Reference
+
+All errors return JSON with a consistent shape:
+```json
+{"error": "<message>"}
+```
+
+| Status | When it occurs | Example |
+|--------|---------------|---------|
+| `400 Bad Request` | Request body is not valid JSON, or a required field is blank | `POST /shorten` with `Content-Type: text/plain` |
+| `404 Not Found` | Resource does not exist | `GET /urls/99999`, `GET /nonexistent-route` |
+| `405 Method Not Allowed` | HTTP verb not supported on that route | `DELETE /health` |
+| `409 Conflict` | Unique constraint violated | `POST /shorten` with a `short_code` already in use; `POST /users` with a duplicate email |
+| `410 Gone` | Resource exists but has been soft-deleted (deactivated) | `GET /<short_code>` for a deactivated URL |
+| `422 Unprocessable Entity` | Input is present but semantically invalid | `POST /shorten` with `original_url: "notaurl"` (missing http/https scheme) |
+| `500 Internal Server Error` | Unexpected server-side failure | Unhandled exception; logged automatically with stack trace |
+
+### 404 behaviour
+Unmatched routes return JSON, not the default Flask HTML page:
+```json
+{"error": "Resource not found"}
+```
+
+### 500 behaviour
+Unhandled exceptions are caught by the global error handler, logged at ERROR level with a full stack trace (visible in `docker compose logs`), and return:
+```json
+{"error": "Internal server error"}
+```
+The stack trace is never exposed to the client.
+
+### Soft deletes (410 vs 404)
+Deactivated URLs return `410 Gone` rather than `404` so callers can distinguish "never existed" from "existed but was removed". This preserves audit history while signalling the resource is intentionally inactive.
+
+---
+
 ## Alert: ServiceDown
 
 **Trigger:** A URL Shortener app instance has been unreachable for >1 minute.
