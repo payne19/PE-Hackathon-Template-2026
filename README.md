@@ -1,8 +1,46 @@
-# MLH PE Hackathon — Flask + Peewee + PostgreSQL Template
+# URL Shortener — MLH PE Hackathon 2026
 
-A minimal hackathon starter template. You get the scaffolding and database wiring — you build the models, routes, and CSV loading logic.
+A production-grade URL shortener built for the MLH Production Engineering Hackathon.
 
-**Stack:** Flask · Peewee ORM · PostgreSQL · uv
+**Stack:** Flask · Peewee ORM · PostgreSQL · Redis · Nginx · Prometheus · Grafana · Docker Compose
+
+## Architecture
+
+```
+                        ┌──────────────────────────────┐
+Internet ──▶ Nginx :80  │  round-robin load balancer   │
+                        └──────┬───────────┬───────────┘
+                               │           │
+                          app1:5000   app2:5000
+                          (Gunicorn 4w) (Gunicorn 4w)
+                               │           │
+                        ┌──────▼───────────▼──────────┐
+                        │   PostgreSQL :5432           │
+                        └─────────────────────────────┘
+                        ┌─────────────────────────────┐
+                        │   Redis :6379  (URL cache)  │
+                        └─────────────────────────────┘
+                        ┌─────────────────────────────┐
+                        │   Prometheus :9090           │
+                        │   Grafana     :3000          │
+                        │   Alertmanager :9093         │
+                        └─────────────────────────────┘
+```
+
+## Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Liveness check → `{"status":"ok"}` |
+| GET | `/metrics` | Prometheus metrics |
+| POST | `/shorten` | Create a short URL |
+| GET | `/<code>` | Redirect (cached in Redis) |
+| GET | `/urls` | List active URLs (paginated) |
+| GET | `/urls/<id>` | Get URL by ID |
+| DELETE | `/urls/<id>` | Deactivate URL |
+| GET | `/stats/<code>` | Click stats for a short code |
+
+See [`docs/api.md`](docs/api.md) for full request/response details.
 
 ## **Important**
 
@@ -33,23 +71,65 @@ You need to work with around the seed files that you can find in [MLH PE Hackath
 | `uv add <package>` | Add a new dependency |
 | `uv remove <package>` | Remove a dependency |
 
-## Quick Start
+## Quick Start (Docker — recommended)
+
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 ```bash
-# 1. Clone the repo
-git clone <repo-url> && cd mlh-pe-hackathon
+# 1. Clone & configure
+git clone <repo-url> && cd PE-Hackathon-Template-2026
+cp .env.example .env          # edit DATABASE_PASSWORD / DISCORD_WEBHOOK_URL if needed
 
-# 2. Install dependencies
-uv sync
+# 2. Build and start everything
+docker compose up --build -d
 
-# 3. Create the database
+# 3. Seed the database from CSVs
+docker compose exec app1 uv run load_data.py
+
+# 4. Verify
+curl http://localhost/health
+# → {"status":"ok"}
+
+curl http://localhost/metrics
+# → Prometheus metrics
+
+# 5. Dashboards
+# Grafana:    http://localhost:3000  (admin / admin)
+# Prometheus: http://localhost:9090
+```
+
+### Chaos Demo (Reliability Gold)
+```bash
+# Kill one instance — watch the other keep serving
+docker stop pe-hackathon-template-2026-app1-1
+curl http://localhost/health   # still 200 ✅
+docker compose up -d app1      # resurrects automatically
+```
+
+### Load Test (Scalability Gold)
+```bash
+uv add --dev locust
+uv run locust -f locustfile.py --host http://localhost \
+  --headless -u 500 -r 50 --run-time 2m
+```
+
+## Quick Start (Local dev)
+
+```bash
+# 1. Install dependencies
+uv sync --extra dev
+
+# 2. Create the database
 createdb hackathon_db
 
-# 4. Configure environment
-cp .env.example .env   # edit if your DB credentials differ
+# 3. Configure environment
+cp .env.example .env
 
-# 5. Run the server
+# 4. Run the server
 uv run run.py
+
+# 5. Seed data (optional)
+uv run load_data.py
 
 # 6. Verify
 curl http://localhost:5000/health

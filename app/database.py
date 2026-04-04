@@ -1,6 +1,6 @@
 import os
 
-from peewee import DatabaseProxy, Model, PostgresqlDatabase
+from peewee import DatabaseProxy, Model, PostgresqlDatabase, SqliteDatabase
 
 db = DatabaseProxy()
 
@@ -28,3 +28,10 @@ def init_db(app):
     def _db_close(exc):
         if not db.is_closed():
             db.close()
+
+
+def init_test_db(path: str = "/tmp/hackathon_test.db") -> SqliteDatabase:
+    """Initialize a file-based SQLite database for testing (no PostgreSQL needed)."""
+    test_database = SqliteDatabase(path, pragmas={"foreign_keys": 1})
+    db.initialize(test_database)
+    return test_database
