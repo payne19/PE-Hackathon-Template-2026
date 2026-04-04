@@ -44,3 +44,17 @@ See [docker-compose.yml](../docker-compose.yml) line 49: `restart: always`
 Full failure mode reference covering all known failure scenarios, automatic recovery behaviour, and manual recovery steps:
 
 [docs/failure-modes.md](failure-modes.md)
+
+---
+
+## Incident Response — Bronze Tier: The Watchtower
+
+### Structured JSON Logs
+All requests are logged in structured JSON format with `timestamp`, `level`, `method`, `path`, `status`, and `latency_ms`. No print statements.
+
+![JSON Logs](screenshots/incident-bronze-logs.png)
+
+### /metrics Endpoint
+Prometheus metrics exposed at `/metrics` showing CPU usage, RAM, GC stats, Flask request counts, and app info.
+
+![Metrics Page](screenshots/incident-bronze-metrics.png)
