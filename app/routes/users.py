@@ -125,8 +125,8 @@ def bulk_import_users():
              created_at=row.get("created_at") or datetime.now(timezone.utc),
          )
          .on_conflict(
-             conflict_target=[User.email],
-             preserve=[User.username, User.created_at],
+             conflict_target=[User.username],
+             preserve=[User.email, User.created_at],
          )
          .execute())
 
