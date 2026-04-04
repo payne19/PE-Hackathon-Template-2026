@@ -115,17 +115,76 @@ def redirect_short(code):
 
 @urls_bp.route("/urls", methods=["GET"])
 def list_urls():
-    page = request.args.get("page", 1, type=int)
+    from app.models.user import User
+    user_id = request.args.get("user_id", type=int)
+    page = request.args.get("page", type=int)
     per_page = min(request.args.get("per_page", 20, type=int), 100)
-    query = URL.select().where(URL.is_active == True).order_by(URL.created_at.desc())  # noqa: E712
-    total = query.count()
-    urls = query.paginate(page, per_page)
-    return jsonify(
-        total=total,
-        page=page,
-        per_page=per_page,
-        results=[_url_to_dict(u) for u in urls],
+
+    query = URL.select()
+    if user_id:
+        query = query.where(URL.user_id == user_id)
+    query = query.order_by(URL.created_at.desc())
+
+    if page:
+        query = query.paginate(page, per_page)
+
+    return jsonify([_url_to_dict(u) for u in query])
+
+
+@urls_bp.route("/urls", methods=["POST"])
+def create_url():
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify(error="Request body must be JSON"), 400
+
+    original_url = data.get("original_url", "").strip()
+    if not original_url:
+        return jsonify(error="original_url is required"), 422
+
+    if not original_url.startswith(("http://", "https://")):
+        return jsonify(error="original_url must start with http:// or https://"), 422
+
+    user_id = data.get("user_id")
+    title = data.get("title", "").strip() or None
+    short_code = data.get("short_code", "").strip() or None
+
+    if user_id is not None:
+        from app.models.user import User
+        if User.get_or_none(User.id == user_id) is None:
+            return jsonify(error="User not found"), 404
+
+    if short_code:
+        if URL.select().where(URL.short_code == short_code).exists():
+            return jsonify(error="short_code already in use"), 409
+    else:
+        for _ in range(10):
+            candidate = _generate_short_code()
+            if not URL.select().where(URL.short_code == candidate).exists():
+                short_code = candidate
+                break
+        else:
+            return jsonify(error="Could not generate unique short code"), 500
+
+    now = datetime.now(timezone.utc)
+    url = URL.create(
+        short_code=short_code,
+        original_url=original_url,
+        title=title,
+        user_id=user_id,
+        is_active=True,
+        created_at=now,
+        updated_at=now,
     )
+
+    Event.create(
+        url=url,
+        user_id=user_id,
+        event_type="created",
+        timestamp=now,
+        details=None,
+    )
+
+    return jsonify(_url_to_dict(url)), 201
 
 
 @urls_bp.route("/urls/<int:url_id>", methods=["GET"])
@@ -134,6 +193,40 @@ def get_url(url_id):
         url = URL.get_by_id(url_id)
     except URL.DoesNotExist:
         return jsonify(error="URL not found"), 404
+    return jsonify(_url_to_dict(url))
+
+
+@urls_bp.route("/urls/<int:url_id>", methods=["PUT"])
+def update_url(url_id):
+    try:
+        url = URL.get_by_id(url_id)
+    except URL.DoesNotExist:
+        return jsonify(error="URL not found"), 404
+
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify(error="Request body must be JSON"), 400
+
+    if "title" in data:
+        url.title = data["title"]
+    if "original_url" in data:
+        url.original_url = data["original_url"]
+    if "is_active" in data:
+        url.is_active = bool(data["is_active"])
+        if not url.is_active:
+            cache.delete(f"url:{url.short_code}")
+
+    url.updated_at = datetime.now(timezone.utc)
+    url.save()
+
+    Event.create(
+        url=url,
+        user_id=None,
+        event_type="updated",
+        timestamp=datetime.now(timezone.utc),
+        details=None,
+    )
+
     return jsonify(_url_to_dict(url))
 
 
