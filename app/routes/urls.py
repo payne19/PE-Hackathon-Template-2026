@@ -137,12 +137,21 @@ def list_urls():
     per_page = min(request.args.get("per_page", 20, type=int), 100)
 
     is_active = request.args.get("is_active")
+    title = request.args.get("title")
+    original_url = request.args.get("original_url")
+    short_code = request.args.get("short_code")
 
     query = URL.select()
     if user_id:
         query = query.where(URL.user_id == user_id)
     if is_active is not None:
         query = query.where(URL.is_active == (is_active.lower() in ("true", "1", "yes")))
+    if title:
+        query = query.where(URL.title.contains(title))
+    if original_url:
+        query = query.where(URL.original_url.contains(original_url))
+    if short_code:
+        query = query.where(URL.short_code == short_code)
     query = query.order_by(URL.created_at.desc())
 
     if page:
@@ -229,7 +238,7 @@ def get_url_by_code(code):
     return jsonify(_url_to_dict(url))
 
 
-@urls_bp.route("/urls/<int:url_id>", methods=["PUT"])
+@urls_bp.route("/urls/<int:url_id>", methods=["PUT", "PATCH"])
 def update_url(url_id):
     try:
         url = URL.get_by_id(url_id)
@@ -299,13 +308,25 @@ def stats(code):
         url = URL.get(URL.short_code == code)
     except URL.DoesNotExist:
         return jsonify(error="Short code not found"), 404
+    return _stats_response(url)
 
+
+@urls_bp.route("/urls/<int:url_id>/stats", methods=["GET"])
+def stats_by_id(url_id):
+    try:
+        url = URL.get_by_id(url_id)
+    except URL.DoesNotExist:
+        return jsonify(error="URL not found"), 404
+    return _stats_response(url)
+
+
+def _stats_response(url):
     click_count = Event.select().where(
         (Event.url == url) & (Event.event_type == "click")
     ).count()
 
     return jsonify(
-        short_code=code,
+        short_code=url.short_code,
         original_url=url.original_url,
         title=url.title,
         is_active=url.is_active,

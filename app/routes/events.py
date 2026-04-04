@@ -31,6 +31,8 @@ def list_events():
     url_id = request.args.get("url_id", type=int)
     user_id = request.args.get("user_id", type=int)
     event_type = request.args.get("event_type")
+    page = request.args.get("page", type=int)
+    per_page = min(request.args.get("per_page", 20, type=int), 100)
 
     query = Event.select()
     if url_id:
@@ -41,6 +43,10 @@ def list_events():
         query = query.where(Event.event_type == event_type)
 
     query = query.order_by(Event.timestamp.desc())
+
+    if page:
+        query = query.paginate(page, per_page)
+
     return jsonify([_event_dict(e) for e in query])
 
 
