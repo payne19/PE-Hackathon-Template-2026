@@ -1,192 +1,175 @@
-# MLH PE Hackathon — Flask + Peewee + PostgreSQL Template
+# PE Hackathon — URL Shortener
 
-A minimal hackathon starter template. You get the scaffolding and database wiring — you build the models, routes, and CSV loading logic.
+Production Engineering Hackathon 2026 · Built by Team [Your Team Name]
 
-**Stack:** Flask · Peewee ORM · PostgreSQL · uv
+A production-ready URL shortener with automated testing, CI/CD, structured observability, and chaos-resilient deployment.
 
-## **Important**
+---
 
-You need to work with around the seed files that you can find in [MLH PE Hackathon](https://mlh-pe-hackathon.com) platform. This will help you build the schema for the database and have some data to do some testing and submit your project for judging. If you need help with this, reach out on Discord or on the Q&A tab on the platform.
+## Architecture
 
-## Prerequisites
+```
+User
+ │
+ ▼
+FastAPI App  ──► PostgreSQL (peewee ORM)
+ │
+ ├── /metrics  ──► Prometheus ──► Alertmanager ──► Discord
+ │
+ └── Grafana (reads Prometheus)
+```
 
-- **uv** — a fast Python package manager that handles Python versions, virtual environments, and dependencies automatically.
-  Install it with:
-  ```bash
-  # macOS / Linux
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+All services run in Docker. The app uses `restart: always` so it self-heals after crashes.
 
-  # Windows (PowerShell)
-  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  ```
-  For other methods see the [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/).
-- PostgreSQL running locally (you can use Docker or a local instance)
+---
 
-## uv Basics
+## Endpoints
 
-`uv` manages your Python version, virtual environment, and dependencies automatically — no manual `python -m venv` needed.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Service + DB health check |
+| GET | `/metrics` | Prometheus metrics |
+| POST | `/urls` | Shorten a URL |
+| GET | `/urls` | List active URLs |
+| GET | `/urls/{code}` | Get URL by short code |
+| DELETE | `/urls/{code}` | Deactivate a URL |
+| GET | `/r/{code}` | Redirect to original URL |
+| POST | `/users` | Create a user |
+| GET | `/users/{id}` | Get user + their URLs |
 
-| Command | What it does |
-|---------|--------------|
-| `uv sync` | Install all dependencies (creates `.venv` automatically) |
-| `uv run <script>` | Run a script using the project's virtual environment |
-| `uv add <package>` | Add a new dependency |
-| `uv remove <package>` | Remove a dependency |
+Full interactive docs: `http://localhost:8000/docs`
 
-## Quick Start
+---
+
+## Quickstart (local, no Docker)
+
+**Requirements:** Python 3.11+, PostgreSQL running on `localhost:5432`
 
 ```bash
-# 1. Clone the repo
-git clone <repo-url> && cd mlh-pe-hackathon
+# 1. Clone and enter the project
+git clone <your-repo-url>
+cd pe-hackathon
 
-# 2. Install dependencies
-uv sync
+# 2. Copy env and install
+cp .env.example .env
+pip install -e ".[dev]"
 
-# 3. Create the database
-createdb hackathon_db
-
-# 4. Configure environment
-cp .env.example .env   # edit if your DB credentials differ
-
-# 5. Run the server
-uv run run.py
-
-# 6. Verify
-curl http://localhost:5000/health
-# → {"status":"ok"}
+# 3. Start the app
+python run.py
 ```
 
-## Project Structure
+App is live at `http://localhost:8000`
 
-```
-mlh-pe-hackathon/
-├── app/
-│   ├── __init__.py          # App factory (create_app)
-│   ├── database.py          # DatabaseProxy, BaseModel, connection hooks
-│   ├── models/
-│   │   └── __init__.py      # Import your models here
-│   └── routes/
-│       └── __init__.py      # register_routes() — add blueprints here
-├── .env.example             # DB connection template
-├── .gitignore               # Python + uv gitignore
-├── .python-version          # Pin Python version for uv
-├── pyproject.toml           # Project metadata + dependencies
-├── run.py                   # Entry point: uv run run.py
-└── README.md
+---
+
+## Quickstart (full Docker stack)
+
+```bash
+docker-compose up --build
 ```
 
-## How to Add a Model
+| Service | URL |
+|---|---|
+| API | http://localhost:8000 |
+| API docs | http://localhost:8000/docs |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 (admin / admin) |
+| Alertmanager | http://localhost:9093 |
 
-1. Create a file in `app/models/`, e.g. `app/models/product.py`:
+---
 
-```python
-from peewee import CharField, DecimalField, IntegerField
+## Running tests
 
-from app.database import BaseModel
+```bash
+# All tests + coverage report
+pytest
 
+# Verbose output
+pytest -v
 
-class Product(BaseModel):
-    name = CharField()
-    category = CharField()
-    price = DecimalField(decimal_places=2)
-    stock = IntegerField()
+# Coverage only
+pytest --cov=app --cov-report=html
+open htmlcov/index.html
 ```
 
-2. Import it in `app/models/__init__.py`:
+Tests use an in-memory SQLite database — no Postgres required.
 
-```python
-from app.models.product import Product
+---
+
+## Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `DB_HOST` | `127.0.0.1` | Postgres host |
+| `DB_PORT` | `5432` | Postgres port |
+| `DB_NAME` | `postgres` | Database name |
+| `DB_USER` | `postgres` | Database user |
+| `DB_PASSWORD` | `1234` | Database password |
+
+---
+
+## Chaos engineering demo
+
+```bash
+# 1. Start the stack
+docker-compose up -d
+
+# 2. Kill the app container
+docker kill pe-hackathon-app-1
+
+# 3. Watch it restart automatically
+watch docker ps
+
+# 4. Confirm it recovered
+curl http://localhost:8000/health
 ```
 
-3. Create the table (run once in a Python shell or a setup script):
+---
 
-```python
-from app.database import db
-from app.models.product import Product
+## Sending bad input (graceful error demo)
 
-db.create_tables([Product])
+```bash
+# Missing http:// scheme — returns 422
+curl -X POST http://localhost:8000/urls \
+  -H "Content-Type: application/json" \
+  -d '{"original_url": "google.com"}'
+
+# Missing body field — returns 422
+curl -X POST http://localhost:8000/urls \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Non-existent short code — returns 404
+curl http://localhost:8000/urls/xxxxxx
 ```
 
-## How to Add Routes
+---
 
-1. Create a blueprint in `app/routes/`, e.g. `app/routes/products.py`:
+## Docs
 
-```python
-from flask import Blueprint, jsonify
-from playhouse.shortcuts import model_to_dict
+- [Failure Modes](docs/failure-modes.md)
+- [Runbook](docs/runbook.md)
+- [Decision Log](docs/decision-log.md)
 
-from app.models.product import Product
+---
 
-products_bp = Blueprint("products", __name__)
+## CI/CD
 
+GitHub Actions runs on every push. The pipeline:
+1. Installs dependencies
+2. Runs the full test suite
+3. Enforces 70%+ code coverage
+4. **Blocks merge if any test fails**
 
-@products_bp.route("/products")
-def list_products():
-    products = Product.select()
-    return jsonify([model_to_dict(p) for p in products])
-```
+See `.github/workflows/ci.yml`.
 
-2. Register it in `app/routes/__init__.py`:
+---
 
-```python
-def register_routes(app):
-    from app.routes.products import products_bp
-    app.register_blueprint(products_bp)
-```
+## Discord alerts setup
 
-## How to Load CSV Data
+1. Create a webhook in your Discord server: `Server Settings → Integrations → Webhooks`
+2. Copy the webhook URL
+3. Replace `YOUR_DISCORD_WEBHOOK_URL` in `monitoring/alertmanager.yml`
+4. Restart the stack: `docker-compose restart alertmanager`
 
-```python
-import csv
-from peewee import chunked
-from app.database import db
-from app.models.product import Product
-
-def load_csv(filepath):
-    with open(filepath, newline="") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    with db.atomic():
-        for batch in chunked(rows, 100):
-            Product.insert_many(batch).execute()
-```
-
-## Useful Peewee Patterns
-
-```python
-from peewee import fn
-from playhouse.shortcuts import model_to_dict
-
-# Select all
-products = Product.select()
-
-# Filter
-cheap = Product.select().where(Product.price < 10)
-
-# Get by ID
-p = Product.get_by_id(1)
-
-# Create
-Product.create(name="Widget", category="Tools", price=9.99, stock=50)
-
-# Convert to dict (great for JSON responses)
-model_to_dict(p)
-
-# Aggregations
-avg_price = Product.select(fn.AVG(Product.price)).scalar()
-total = Product.select(fn.SUM(Product.stock)).scalar()
-
-# Group by
-from peewee import fn
-query = (Product
-         .select(Product.category, fn.COUNT(Product.id).alias("count"))
-         .group_by(Product.category))
-```
-
-## Tips
-
-- Use `model_to_dict` from `playhouse.shortcuts` to convert model instances to dictionaries for JSON responses.
-- Wrap bulk inserts in `db.atomic()` for transactional safety and performance.
-- The template uses `teardown_appcontext` for connection cleanup, so connections are closed even when requests fail.
-- Check `.env.example` for all available configuration options.
+Alerts fire for: service down, high error rate (> 5%), high latency (p95 > 1s).

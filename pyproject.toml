@@ -8,4 +8,12 @@ dependencies = [
     "peewee>=3.17",
     "psycopg2-binary>=2.9",
     "python-dotenv>=1.0",
+    "redis>=5.0",           # redis-py — works on Windows natively
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "fakeredis>=2.23",      # in-memory Redis fake — no Redis server needed for tests
 ]
