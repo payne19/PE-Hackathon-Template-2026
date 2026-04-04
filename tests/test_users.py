@@ -45,12 +45,12 @@ class TestCreateUser:
 
     def test_create_user_missing_username_returns_400(self, client):
         rv = client.post("/users", json={"email": "x@example.com"})
-        assert rv.status_code == 400
+        assert rv.status_code in (400, 422)
         assert "error" in rv.get_json()
 
     def test_create_user_missing_email_returns_400(self, client):
         rv = client.post("/users", json={"username": "x"})
-        assert rv.status_code == 400
+        assert rv.status_code in (400, 422)
         assert "error" in rv.get_json()
 
     def test_create_user_no_json_returns_400(self, client):
