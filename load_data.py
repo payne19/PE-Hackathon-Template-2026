@@ -36,7 +36,6 @@ def _load_users(seeds_dir: Path):
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f))
 
-    User.delete().execute()
     with db.atomic():
         for batch in chunked(rows, 200):
             User.insert_many(
@@ -49,25 +48,26 @@ def _load_users(seeds_dir: Path):
                     }
                     for r in batch
                 ]
-            ).execute()
-    print(f"  Loaded {len(rows)} users")
+            ).on_conflict_ignore().execute()
+    valid_ids = {u.id for u in User.select(User.id)}
+    print(f"  Loaded {len(valid_ids)} users (skipped {len(rows) - len(valid_ids)} duplicates)")
+    return valid_ids
 
 
-def _load_urls(seeds_dir: Path):
+def _load_urls(seeds_dir: Path, valid_user_ids: set):
     from app.models.url import URL
 
     path = seeds_dir / "urls.csv"
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f))
 
-    URL.delete().execute()
     with db.atomic():
         for batch in chunked(rows, 200):
             URL.insert_many(
                 [
                     {
                         "id": r["id"],
-                        "user_id": r["user_id"] or None,
+                        "user_id": int(r["user_id"]) if r["user_id"] and int(r["user_id"]) in valid_user_ids else None,
                         "short_code": r["short_code"],
                         "original_url": r["original_url"],
                         "title": r["title"] or None,
@@ -77,33 +77,35 @@ def _load_urls(seeds_dir: Path):
                     }
                     for r in batch
                 ]
-            ).execute()
+            ).on_conflict_ignore().execute()
     print(f"  Loaded {len(rows)} URLs")
 
 
-def _load_events(seeds_dir: Path):
+def _load_events(seeds_dir: Path, valid_user_ids: set):
     from app.models.event import Event
+    from app.models.url import URL
 
     path = seeds_dir / "events.csv"
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f))
 
-    Event.delete().execute()
+    valid_url_ids = {u.id for u in URL.select(URL.id)}
+
     with db.atomic():
         for batch in chunked(rows, 200):
             Event.insert_many(
                 [
                     {
                         "id": r["id"],
-                        "url_id": r["url_id"] or None,
-                        "user_id": r["user_id"] or None,
+                        "url_id": int(r["url_id"]) if r["url_id"] and int(r["url_id"]) in valid_url_ids else None,
+                        "user_id": int(r["user_id"]) if r["user_id"] and int(r["user_id"]) in valid_user_ids else None,
                         "event_type": r["event_type"],
                         "timestamp": r["timestamp"] or None,
                         "details": r["details"] or None,
                     }
                     for r in batch
                 ]
-            ).execute()
+            ).on_conflict_ignore().execute()
     print(f"  Loaded {len(rows)} events")
 
 
@@ -118,12 +120,21 @@ def main():
     db.create_tables([User, URL, Event], safe=True)
     print("Tables ensured.")
 
+    print("Truncating tables...")
+    db.execute_sql("TRUNCATE TABLE events, urls, users RESTART IDENTITY CASCADE")
+
     print("Loading users...")
-    _load_users(seeds_dir)
+    valid_ids = _load_users(seeds_dir)
     print("Loading URLs...")
-    _load_urls(seeds_dir)
+    _load_urls(seeds_dir, valid_ids)
     print("Loading events...")
-    _load_events(seeds_dir)
+    _load_events(seeds_dir, valid_ids)
+
+    print("Resetting sequences...")
+    db.execute_sql("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))")
+    db.execute_sql("SELECT setval('urls_id_seq', (SELECT MAX(id) FROM urls))")
+    db.execute_sql("SELECT setval('events_id_seq', (SELECT MAX(id) FROM events))")
+
     print("Done!")
 
 
