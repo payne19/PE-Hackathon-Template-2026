@@ -217,6 +217,14 @@ def get_url(url_id):
     return jsonify(_url_to_dict(url))
 
 
+@urls_bp.route("/urls/<string:code>", methods=["GET"])
+def get_url_by_code(code):
+    url = URL.get_or_none(URL.short_code == code)
+    if url is None:
+        return jsonify(error="URL not found"), 404
+    return jsonify(_url_to_dict(url))
+
+
 @urls_bp.route("/urls/<int:url_id>", methods=["PUT"])
 def update_url(url_id):
     try:
