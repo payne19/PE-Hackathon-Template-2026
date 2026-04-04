@@ -14,4 +14,4 @@ ENV FLASK_DEBUG=false
 
 EXPOSE 5000
 
-CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "60", "run:app"]
+CMD ["uv", "run", "gunicorn", "--config", "gunicorn.conf.py", "run:app"]

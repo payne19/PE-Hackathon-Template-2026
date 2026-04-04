@@ -23,16 +23,37 @@ services:
       timeout: 3s
       retries: 10
 
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    restart: always
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@db:5432/hackathon_db"
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "1000"
+      DEFAULT_POOL_SIZE: "25"
+      MIN_POOL_SIZE: "5"
+      RESERVE_POOL_SIZE: "10"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   app1:
     build: .
+    init: true
     restart: always
     env_file: .env
     environment:
-      DATABASE_HOST: db
+      DATABASE_HOST: pgbouncer
       DATABASE_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -41,14 +62,32 @@ services:
 
   app2:
     build: .
+    init: true
     restart: always
     env_file: .env
     environment:
-      DATABASE_HOST: db
+      DATABASE_HOST: pgbouncer
       DATABASE_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      db:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "5000"
+
+  app3:
+    build: .
+    init: true
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_HOST: pgbouncer
+      DATABASE_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -65,6 +104,7 @@ services:
     depends_on:
       - app1
       - app2
+      - app3
 
   prometheus:
     image: prom/prometheus:v2.52.0
