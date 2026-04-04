@@ -39,14 +39,20 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: ".python-version"
+        run: uv python install
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --extra dev
 
-      - name: Run tests
-        run: uv run pytest tests/ -v
+      - name: Run tests with coverage
+        run: uv run pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=70
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml
