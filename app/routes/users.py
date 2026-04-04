@@ -116,16 +116,18 @@ def bulk_import_users():
     stream = io.StringIO(f.stream.read().decode("utf-8"))
     reader = csv.DictReader(stream)
 
-    imported = []
-    for row in reader:
-        user, created = User.get_or_create(
-            email=row["email"],
-            defaults={
-                "username": row["username"],
-                "created_at": row.get("created_at") or datetime.now(timezone.utc),
-            },
-        )
-        if created:
-            imported.append(_user_dict(user))
+    rows = list(reader)
+    for row in rows:
+        (User
+         .insert(
+             username=row["username"],
+             email=row["email"],
+             created_at=row.get("created_at") or datetime.now(timezone.utc),
+         )
+         .on_conflict(
+             conflict_target=[User.username],
+             preserve=[User.email, User.created_at],
+         )
+         .execute())
 
-    return jsonify(imported=len(imported), count=len(imported)), 201
+    return jsonify(imported=len(rows), count=len(rows)), 201
