@@ -1,0 +1,15 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: discord
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+
+receivers:
+  - name: discord
+    slack_configs:
+      - api_url: 'https://discordapp.com/api/webhooks/1490136148511686670/3h1yLRYGamC2fHUDiIicDtynd25N5O8Fg4fJhzt5gyekw0gtiueYjnsl6vVC2bAvYD6D/slack'
+        title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
