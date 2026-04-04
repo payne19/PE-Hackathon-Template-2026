@@ -30,8 +30,11 @@ def init_db(app):
             db.close()
 
 
-def init_test_db(path: str = "/tmp/hackathon_test.db") -> SqliteDatabase:
+def init_test_db(path: str = None) -> SqliteDatabase:
     """Initialize a file-based SQLite database for testing (no PostgreSQL needed)."""
+    import tempfile
+    if path is None:
+        path = os.path.join(tempfile.gettempdir(), "hackathon_test.db")
     test_database = SqliteDatabase(path, pragmas={"foreign_keys": 1})
     db.initialize(test_database)
     return test_database
