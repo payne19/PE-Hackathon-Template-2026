@@ -11,11 +11,14 @@ users_bp = Blueprint("users", __name__, url_prefix="/users")
 
 
 def _user_dict(user):
+    ca = user.created_at
+    if ca and hasattr(ca, "strftime"):
+        ca = ca.strftime("%Y-%m-%dT%H:%M:%S")
     return {
         "id": user.id,
         "username": user.username,
         "email": user.email,
-        "created_at": user.created_at.strftime("%Y-%m-%dT%H:%M:%S") if user.created_at else None,
+        "created_at": ca,
     }
 
 
