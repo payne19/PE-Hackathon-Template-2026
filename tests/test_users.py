@@ -144,7 +144,7 @@ class TestBulkImportUsers:
         assert rv.status_code == 400
         assert "error" in rv.get_json()
 
-    def test_bulk_import_skips_duplicates(self, client):
+    def test_bulk_import_upserts_duplicates(self, client):
         import io
         client.post("/users", json={"username": "existing", "email": "exist@example.com"})
         csv_data = "username,email\nexisting,exist@example.com\nnew,new@example.com\n"
@@ -154,7 +154,7 @@ class TestBulkImportUsers:
             content_type="multipart/form-data",
         )
         assert rv.status_code == 201
-        assert rv.get_json()["imported"] == 1
+        assert rv.get_json()["imported"] == 2
 
 
 class TestListUsersPagination:
