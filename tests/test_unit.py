@@ -1,5 +1,7 @@
 """Unit tests — pure Python, no database or HTTP required."""
+import sys
 import string
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -90,3 +92,101 @@ class TestErrorHandlers:
         assert rv.status_code == 405
         data = rv.get_json()
         assert "error" in data
+
+    def test_404_handler_via_multi_segment_path(self, client):
+        rv = client.get("/no/such/path")
+        assert rv.status_code == 404
+        assert "error" in rv.get_json()
+
+    def test_400_handler_via_http_exception(self, app):
+        from werkzeug.exceptions import BadRequest
+        with app.test_request_context("/"):
+            rv = app.handle_http_exception(BadRequest())
+        assert rv.status_code == 400
+        assert "error" in rv.get_json()
+
+    def test_409_handler_via_http_exception(self, app):
+        from werkzeug.exceptions import Conflict
+        with app.test_request_context("/"):
+            rv = app.handle_http_exception(Conflict())
+        assert rv.status_code == 409
+        assert "error" in rv.get_json()
+
+    def test_500_handler_via_http_exception(self, app):
+        from werkzeug.exceptions import InternalServerError
+        with app.test_request_context("/"):
+            rv = app.handle_http_exception(InternalServerError())
+        assert rv.status_code == 500
+        assert "error" in rv.get_json()
+
+
+class TestCacheInit:
+    def test_redis_config_set_when_no_cache_type(self):
+        from flask import Flask
+        from app.cache import cache, init_cache
+        test_app = Flask(__name__)
+        with patch.object(cache, "init_app", return_value=None):
+            init_cache(test_app)
+        assert test_app.config["CACHE_TYPE"] == "RedisCache"
+
+    def test_cache_falls_back_to_simplecache_on_error(self):
+        from flask import Flask
+        from app.cache import cache, init_cache
+        test_app = Flask(__name__)
+        test_app.config["CACHE_TYPE"] = "RedisCache"
+        call_count = {"n": 0}
+
+        def _fail_first(app):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise Exception("Redis unavailable")
+
+        with patch.object(cache, "init_app", side_effect=_fail_first):
+            init_cache(test_app)
+        assert test_app.config["CACHE_TYPE"] == "SimpleCache"
+
+
+class TestConfigureImportErrors:
+    def test_metrics_import_error_is_silenced(self, app):
+        from app import _configure_metrics
+        with patch.dict(sys.modules, {"prometheus_flask_exporter": None}):
+            _configure_metrics(app)
+
+    def test_logging_falls_back_to_basicconfig(self, app):
+        from app import _configure_logging
+        with patch.dict(
+            sys.modules,
+            {"pythonjsonlogger": None, "pythonjsonlogger.jsonlogger": None},
+        ):
+            with patch("logging.basicConfig") as mock_basic:
+                _configure_logging(app)
+            mock_basic.assert_called_once()
+
+
+class TestGetCachedUrl:
+    def test_returns_dict_when_url_exists(self, app):
+        from app.models.url import URL
+        from app.routes.urls import _get_cached_url
+        with app.app_context():
+            URL.create(short_code="gctest1", original_url="https://example.com", is_active=True)
+            result = _get_cached_url("gctest1")
+        assert result is not None
+        assert result["original_url"] == "https://example.com"
+        assert result["is_active"] is True
+
+    def test_returns_none_when_url_missing(self, app):
+        from app.routes.urls import _get_cached_url
+        with app.app_context():
+            result = _get_cached_url("zzz_no_exist_999")
+        assert result is None
+
+
+class TestShortenExhaustedCodes:
+    def test_returns_500_when_all_candidates_taken(self, client):
+        from app.routes import urls as urls_module
+        mock_qs = MagicMock()
+        mock_qs.where.return_value.exists.return_value = True
+        with patch.object(urls_module.URL, "select", return_value=mock_qs):
+            rv = client.post("/shorten", json={"original_url": "https://example.com"})
+        assert rv.status_code == 500
+        assert "error" in rv.get_json()
