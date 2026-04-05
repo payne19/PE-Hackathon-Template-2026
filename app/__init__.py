@@ -105,6 +105,6 @@ def _configure_logging(app):
         handler.setFormatter(formatter)
         root = logging.getLogger()
         root.handlers = [handler]
-        root.setLevel(logging.INFO)
+        root.setLevel(logging.WARNING)
     except ImportError:
         logging.basicConfig(level=logging.INFO)
