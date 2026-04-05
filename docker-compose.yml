@@ -135,6 +135,7 @@ services:
     restart: always
     environment:
       DISCORD_WEBHOOK: "https://discordapp.com/api/webhooks/1490136148511686670/3h1yLRYGamC2fHUDiIicDtynd25N5O8Fg4fJhzt5gyekw0gtiueYjnsl6vVC2bAvYD6D"
+      DISCORD_USERNAME: "AlertBot"
     expose:
       - "9094"
 
