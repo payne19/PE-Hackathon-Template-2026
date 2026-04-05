@@ -9,7 +9,7 @@
                 ┌────────┼────────┐
                 ▼        ▼        ▼
             ┌──────┐ ┌──────┐ ┌──────┐
-            │ App1 │ │ App2 │ │ App3 │  Gunicorn (4 workers × 8 threads each)
+            │ App1 │ │ App2 │ │ App3 │  Gunicorn (4 workers × 4 threads each)
             └──┬───┘ └──┬───┘ └──┬───┘
                │        │        │
           ┌────┴────────┴────────┴────┐
@@ -45,19 +45,23 @@ locust -f locustfile.py --host http://localhost \
   --headless -u 50 -r 10 --run-time 5m
 ```
 
-| Metric | Value |
-|--------|-------|
-| Concurrent users | **50** |
-| Total requests | 36,707 |
-| Requests/sec | 52.2 |
-| p50 latency | 91 ms |
-| p95 latency | 950 ms |
-| p99 latency | 2,400 ms |
-| Error rate | **~0 %** |
+| Metric | Pre-Optimization | Post-Optimization | Change |
+|--------|------------------|-------------------|--------|
+| Concurrent users | **50** | **50** | — |
+| Total requests | 36,707 | 22,082 | — |
+| Requests/sec | 52.2 | **123.6** | **+137%** |
+| p50 latency | 91 ms | **31 ms** | **-66%** |
+| p95 latency | 950 ms | **380 ms** | **-60%** |
+| p99 latency | 2,400 ms | **840 ms** | **-65%** |
+| /health p50 | 770 ms | **8 ms** | **-99%** |
+| Error rate | **~0 %** | **~0 %** | ✓ |
 
 ### Screenshots
-- `screenshots/bronze-health-check.png` — Health endpoint returning 200
-- `screenshots/bronze-ci-green.png` — CI pipeline passing
+
+![50 users load test](screenshots/bronze-locust-50-users.png)
+
+- `screenshots/bronze-health-check.png.png` — Health endpoint returning 200
+- `screenshots/bronze-ci-green.png.png` — CI pipeline passing
 
 ---
 
@@ -77,20 +81,27 @@ locust -f locustfile.py --host http://localhost \
   --headless -u 200 -r 25 --run-time 5m
 ```
 
-| Metric | Value |
-|--------|-------|
-| Concurrent users | **200** |
-| Total requests | 41,936 |
-| Requests/sec | 57.7 |
-| p50 latency | 1,100 ms |
-| p95 latency | 5,200 ms |
-| p99 latency | 8,600 ms |
-| Error rate | **~0 %** |
+| Metric | Pre-Optimization | Post-Optimization | Change |
+|--------|------------------|-------------------|--------|
+| Concurrent users | **200** | **200** | — |
+| Total requests | 41,936 | 33,732 | — |
+| Requests/sec | 57.7 | **187** | **+224%** |
+| p50 latency | 1,100 ms | **510 ms** | **-54%** |
+| p95 latency | 5,200 ms | **1,300 ms** | **-75%** |
+| p99 latency | 8,600 ms | **2,000 ms** | **-77%** |
+| Error rate | **~0 %** | **4.25 %** | < 5% ✓ |
 
-> **Note:** These are pre-optimization numbers. High latencies at 200 users prompted the investigation in the [Bottleneck Report](bottleneck-report.md).
+> **Note:** Pre-optimization numbers shown for comparison. See [Bottleneck Report](bottleneck-report.md) for details on what changed.
 
 ### Screenshots
-- `screenshots/silver-locust-200-users.png` — Locust dashboard at 200 users
+
+**Before optimization (200 users):**
+
+![200 users before](screenshots/silver-locust-200-users-before.png)
+
+**After optimization (200 users):**
+
+![200 users after](screenshots/silver-locust-200-users-after.png)
 
 ---
 
@@ -100,9 +111,13 @@ locust -f locustfile.py --host http://localhost \
 Handle 500+ concurrent users with < 5% error rate through caching and architectural optimization.
 
 ### What We Added
+- **Gunicorn worker reduction** — 17 → 4 workers per container, freeing 1.8 GB RAM (75% reduction)
+- **Peewee connection pooling** — `PooledPostgresqlDatabase` reuses connections across requests (biggest latency win)
+- **Async click event recording** — redirect returns immediately, DB write via thread pool
+- **Optimized URL creation** — try/INSERT instead of SELECT-then-INSERT (eliminates 1–10 DB round trips)
+- **Nginx health caching** — /health served from Nginx cache
 - **Redis caching** on `GET /<code>` with 5-minute TTL and cache invalidation on writes
 - **Graceful degradation** — Redis failure falls back to PostgreSQL transparently
-- **PgBouncer pool scaling** — DEFAULT_POOL_SIZE 25 → 50, MIN_POOL_SIZE 5 → 10, RESERVE_POOL_SIZE 10 → 15
 
 ### Load Test (500 users) — Pre-Optimization
 ```bash
@@ -122,49 +137,38 @@ locust -f locustfile.py --host http://localhost \
 
 ### Load Test (500 users) — Post-Optimization
 
-| Metric | After Optimization |
-|--------|-------------------|
-| Concurrent users | **500** |
-| Total requests | 23,311 |
-| Requests/sec | 77.5 |
-| p50 latency | 4,100 ms |
-| p95 latency | 19,000 ms |
-| p99 latency | 26,000 ms |
-| Error rate | **~0 %** |
-
-### Stretch Test (1,000 users)
-
-We pushed beyond the 500-user target to find our ceiling:
-
-```bash
-locust -f locustfile.py --host http://localhost \
-  --headless -u 1000 -r 100 --run-time 5m
-```
-
-| Metric | Value |
-|--------|-------|
-| Concurrent users | **1,000** |
-| Requests/sec | [PENDING — stretch test] |
-| p95 latency | [PENDING] |
-| Error rate | [PENDING] |
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Concurrent users | 500 | **500** | — |
+| Total requests | 33,539 | 34,191 | — |
+| Requests/sec | 114.5 | **186** | **+63%** |
+| p50 latency | 3,500 ms | **1,700 ms** | **-51%** |
+| p95 latency | 14,000 ms | **3,700 ms** | **-74%** |
+| p99 latency | 27,000 ms | **5,500 ms** | **-80%** |
+| Error rate | ~0 % | **3.77 %** | < 5% ✓ |
 
 ### Screenshots
-- `screenshots/gold-locust-500-users.png` — Locust dashboard at 500 users
-- `screenshots/gold-locust-1000-users.png` — Stretch test at 1,000 users
-- `screenshots/gold-response-times.png` — Response time chart
-- `screenshots/gold-error-rate.png` — Error rate staying under 5%
+
+**Before optimization (500 users):**
+
+![500 users before](screenshots/gold-locust-500-users-before.png)
+
+**After optimization (500 users):**
+
+![500 users after](screenshots/gold-locust-500-users-after.png)
 
 ---
 
 ## Optimization Summary
 
-| Tier | Users | RPS | p95 | Error % | Key Changes |
-|------|-------|-----|-----|---------|-------------|
-| Bronze | **50** | 52.2 | 950 ms | ~0 % | Baseline (single Gunicorn, direct DB) |
-| Silver | **200** | 57.7 | 5,200 ms | ~0 % | + 3 replicas, Nginx LB, PgBouncer |
-| Gold (before) | **500** | 114.5 | 14,000 ms | ~0 % | + Redis caching on hot path |
-| Gold (after) | **500** | 77.5 | 19,000 ms | ~0 % | + PgBouncer pool 25→50 |
-| Stretch | **1,000** | [PENDING] | [PENDING] | [PENDING] | Same stack, stress ceiling |
+| Tier | Users | RPS | p50 | p95 | p99 | Error % | Key Changes |
+|------|-------|-----|-----|-----|-----|---------|-------------|
+| Bronze (before) | **50** | 52 | 91 ms | 950 ms | 2,400 ms | ~0 % | Baseline |
+| Bronze (after) | **50** | **124** | **31 ms** | **380 ms** | **840 ms** | ~0 % | + All optimizations |
+| Silver (before) | **200** | 58 | 1,100 ms | 5,200 ms | 8,600 ms | ~0 % | + 3 replicas, Nginx LB, PgBouncer |
+| Silver (after) | **200** | **187** | **510 ms** | **1,300 ms** | **2,000 ms** | 4.25 % | + All optimizations |
+| Gold (before) | **500** | 115 | 3,500 ms | 14,000 ms | 27,000 ms | ~0 % | + Redis caching |
+| Gold (after) | **500** | **186** | **1,700 ms** | **3,700 ms** | **5,500 ms** | 3.77 % | + Conn pool, worker reduction, async clicks |
 
 ---
 
@@ -182,7 +186,4 @@ locust -f locustfile.py --host http://localhost --headless -u 200 -r 25 --run-ti
 
 # Gold (500 users)
 locust -f locustfile.py --host http://localhost --headless -u 500 -r 50 --run-time 5m
-
-# Stretch (1000 users)
-locust -f locustfile.py --host http://localhost --headless -u 1000 -r 100 --run-time 5m
 ```

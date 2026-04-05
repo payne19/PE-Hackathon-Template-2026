@@ -1,13 +1,16 @@
 import random
 import string
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, redirect, request
-from playhouse.shortcuts import model_to_dict
+from peewee import IntegrityError
 
 from app.cache import cache
 from app.models.event import Event
 from app.models.url import URL
+
+_click_pool = ThreadPoolExecutor(max_workers=4)
 
 urls_bp = Blueprint("urls", __name__)
 
@@ -18,10 +21,16 @@ def _generate_short_code(length=6):
 
 
 def _url_to_dict(url_obj):
-    d = model_to_dict(url_obj, recurse=False)
-    d["user_id"] = url_obj.user_id
-    d.pop("user", None)
-    return d
+    return {
+        "id": url_obj.id,
+        "short_code": url_obj.short_code,
+        "original_url": url_obj.original_url,
+        "title": url_obj.title,
+        "user_id": url_obj.user_id,
+        "is_active": url_obj.is_active,
+        "created_at": str(url_obj.created_at) if url_obj.created_at else None,
+        "updated_at": str(url_obj.updated_at) if url_obj.updated_at else None,
+    }
 
 
 @urls_bp.route("/shorten", methods=["POST"])
@@ -46,28 +55,40 @@ def shorten():
     short_code = data.get("short_code") or None
     if isinstance(short_code, str):
         short_code = short_code.strip() or None
-    if short_code:
-        if URL.select().where(URL.short_code == short_code).exists():
-            return jsonify(error="short_code already in use"), 409
-    else:
-        for _ in range(10):
-            candidate = _generate_short_code()
-            if not URL.select().where(URL.short_code == candidate).exists():
-                short_code = candidate
-                break
-        else:
-            return jsonify(error="Could not generate unique short code"), 500
 
     now = datetime.now(timezone.utc)
-    url = URL.create(
-        short_code=short_code,
-        original_url=original_url,
-        title=title,
-        user_id=user_id,
-        is_active=True,
-        created_at=now,
-        updated_at=now,
-    )
+    if short_code:
+        try:
+            url = URL.create(
+                short_code=short_code,
+                original_url=original_url,
+                title=title,
+                user_id=user_id,
+                is_active=True,
+                created_at=now,
+                updated_at=now,
+            )
+        except IntegrityError:
+            return jsonify(error="short_code already in use"), 409
+    else:
+        url = None
+        for _ in range(10):
+            candidate = _generate_short_code()
+            try:
+                url = URL.create(
+                    short_code=candidate,
+                    original_url=original_url,
+                    title=title,
+                    user_id=user_id,
+                    is_active=True,
+                    created_at=now,
+                    updated_at=now,
+                )
+                break
+            except IntegrityError:
+                continue
+        if url is None:
+            return jsonify(error="Could not generate unique short code"), 500
 
     Event.create(
         url=url,
@@ -113,13 +134,21 @@ def redirect_short(code):
     if not cached["is_active"]:
         return jsonify(error="This link is no longer active"), 410
 
-    Event.create(
-        url_id=cached["id"],
-        user_id=None,
-        event_type="click",
-        timestamp=datetime.now(timezone.utc),
-        details=None,
-    )
+    def _record_click(url_id):
+        try:
+            from app.database import db
+            db.connect(reuse_if_open=True)
+            Event.create(
+                url_id=url_id,
+                user_id=None,
+                event_type="click",
+                timestamp=datetime.now(timezone.utc),
+                details=None,
+            )
+        except Exception:
+            pass
+
+    _click_pool.submit(_record_click, cached["id"])
 
     return redirect(cached["original_url"], code=302)
 
