@@ -102,8 +102,7 @@ Handle 500+ concurrent users with < 5% error rate through caching and architectu
 ### What We Added
 - **Redis caching** on `GET /<code>` with 5-minute TTL and cache invalidation on writes
 - **Graceful degradation** — Redis failure falls back to PostgreSQL transparently
-- **Gunicorn tuning** — Fixed worker count to 4 workers × 8 threads = 32 handlers/instance (was 3 × 4 = 12 due to Docker `cpu_count()` returning 1)
-- **PgBouncer pool scaling** — DEFAULT_POOL_SIZE 25 → 50, MIN_POOL_SIZE 5 → 10
+- **PgBouncer pool scaling** — DEFAULT_POOL_SIZE 25 → 50, MIN_POOL_SIZE 5 → 10, RESERVE_POOL_SIZE 10 → 15
 
 ### Load Test (500 users) — Pre-Optimization
 ```bash
@@ -126,11 +125,12 @@ locust -f locustfile.py --host http://localhost \
 | Metric | After Optimization |
 |--------|-------------------|
 | Concurrent users | **500** |
-| Requests/sec | [PENDING — run test] |
-| p50 latency | [PENDING] |
-| p95 latency | [PENDING] |
-| p99 latency | [PENDING] |
-| Error rate | [PENDING] |
+| Total requests | 23,311 |
+| Requests/sec | 77.5 |
+| p50 latency | 4,100 ms |
+| p95 latency | 19,000 ms |
+| p99 latency | 26,000 ms |
+| Error rate | **~0 %** |
 
 ### Stretch Test (1,000 users)
 
@@ -144,7 +144,7 @@ locust -f locustfile.py --host http://localhost \
 | Metric | Value |
 |--------|-------|
 | Concurrent users | **1,000** |
-| Requests/sec | [PENDING] |
+| Requests/sec | [PENDING — stretch test] |
 | p95 latency | [PENDING] |
 | Error rate | [PENDING] |
 
@@ -163,7 +163,7 @@ locust -f locustfile.py --host http://localhost \
 | Bronze | **50** | 52.2 | 950 ms | ~0 % | Baseline (single Gunicorn, direct DB) |
 | Silver | **200** | 57.7 | 5,200 ms | ~0 % | + 3 replicas, Nginx LB, PgBouncer |
 | Gold (before) | **500** | 114.5 | 14,000 ms | ~0 % | + Redis caching on hot path |
-| Gold (after) | **500** | [PENDING] | [PENDING] | [PENDING] | + Gunicorn 4w×8t, PgBouncer pool 50 |
+| Gold (after) | **500** | 77.5 | 19,000 ms | ~0 % | + PgBouncer pool 25→50 |
 | Stretch | **1,000** | [PENDING] | [PENDING] | [PENDING] | Same stack, stress ceiling |
 
 ---

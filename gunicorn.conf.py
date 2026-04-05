@@ -1,9 +1,9 @@
-import os
+import multiprocessing
 
 bind = "0.0.0.0:5000"
-workers = int(os.environ.get("GUNICORN_WORKERS", 4))
+workers = multiprocessing.cpu_count() * 2 + 1
 worker_class = "gthread"
-threads = int(os.environ.get("GUNICORN_THREADS", 8))
+threads = 4
 timeout = 120
 keepalive = 5
 accesslog = "-"
