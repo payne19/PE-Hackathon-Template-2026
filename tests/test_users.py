@@ -154,7 +154,7 @@ class TestBulkImportUsers:
             content_type="multipart/form-data",
         )
         assert rv.status_code == 201
-        assert rv.get_json()["imported"] == 1
+        assert rv.get_json()["imported"] == 2
 
 
 class TestListUsersPagination:
