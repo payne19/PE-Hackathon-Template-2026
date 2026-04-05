@@ -1,274 +1,489 @@
-# URL Shortener — MLH PE Hackathon 2026
+<!-- PROJECT HEADER -->
 
-A production-grade URL shortener built for the MLH Production Engineering Hackathon.
+<br/>
 
-**Stack:** Flask · Peewee ORM · PostgreSQL · Redis · Nginx · PgBouncer · Docker Compose
+<h1 align="center">LatencyLens</h1>
 
-## Architecture
+<p align="center">
+  A production-engineering focused URL shortener platform built for the <b>MLH Production Engineering Hackathon 2026</b>, designed to prove that reliability, observability, and scalability are product features — not afterthoughts.
+</p>
 
-```
+<p align="center">
+  From <b>fast redirects</b> to <b>graceful failure</b>, <b>alerting</b>, <b>dashboards</b>, and <b>load-tested scaling</b>, this project showcases what “production-ready” actually looks like.
+</p>
+
+
+<p align="center">
+  <a href="#-about-the-project">About</a>
+  ·
+  <a href="#-architecture">Architecture</a>
+  ·
+  <a href="#-key-features">Features</a>
+  ·
+  <a href="#-performance-results">Results</a>
+  ·
+  <a href="#-quick-start">Quick Start</a>
+  ·
+  <a href="#-documentation">Docs</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-Flask-blue" />
+  <img src="https://img.shields.io/badge/PostgreSQL-Primary%20Database-336791" />
+  <img src="https://img.shields.io/badge/Redis-Cache-red" />
+  <img src="https://img.shields.io/badge/Nginx-Load%20Balancer-green" />
+  <img src="https://img.shields.io/badge/Prometheus-Metrics-orange" />
+  <img src="https://img.shields.io/badge/Grafana-Dashboards-F46800" />
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ED" />
+  <img src="https://img.shields.io/badge/CI-Tested-success" />
+</p>
+
+---
+
+## Table of Contents
+
+- [About The Project](#-about-the-project)
+- [Why This Project Stands Out](#-why-this-project-stands-out)
+- [Architecture](#-architecture)
+- [Tech Stack](#-tech-stack)
+- [Key Features](#-key-features)
+- [Production Engineering Highlights](#-production-engineering-highlights)
+- [Observability & Incident Response](#-observability--incident-response)
+- [Performance Results](#-performance-results)
+- [Screenshots](#-screenshots)
+- [Project Structure](#-project-structure)
+- [Quick Start](#-quick-start)
+- [Environment Variables](#-environment-variables)
+- [API Overview](#-api-overview)
+- [Documentation](#-documentation)
+- [Demo Scenarios](#-demo-scenarios)
+- [Future Improvements](#-future-improvements)
+
+---
+
+## 📌 About The Project
+
+<p align="center">
+  <img src="./docs/screenshots/incident-gold-dashboar.png" alt="Grafana dashboard screenshot" width="90%" />
+</p>
+
+**LatencyLens** is a production-grade URL shortener built to demonstrate the core skills of a production engineer:
+
+- building reliable services
+- finding bottlenecks with real data
+- scaling horizontally
+- instrumenting systems with metrics and alerts
+- designing graceful failure paths
+- documenting operations like a real team would
+
+Instead of stopping at “the app works,” this project answers the harder question:
+
+> **What happens when traffic spikes, a service goes down, or something breaks at 2 AM?**
+
+This repo shows the answer with:
+
+- a load-balanced Flask application
+- PostgreSQL + PgBouncer for efficient database usage
+- Redis caching for faster hot-path reads
+- Prometheus metrics + alert rules
+- Grafana dashboards for the golden signals
+- Dockerized local production environment
+- CI, tests, troubleshooting docs, runbooks, and failure-mode analysis
+
+---
+
+## ✨ Why This Project Stands Out
+
+Unlike a basic CRUD demo, this project is built like a small real-world service:
+
+- **Reliability-first**: health checks, restart policies, graceful errors, fault tolerance
+- **Scalability-focused**: 3 app replicas, Nginx load balancing, caching, connection pooling
+- **Observable**: metrics, dashboards, logs, alerts, incident workflow
+- **Performance-validated**: Locust load tests at 50, 200, and 500 concurrent users
+- **Operations-ready**: runbooks, deploy guide, troubleshooting guide, decision log, capacity plan
+
+---
+
+## 🏗 Architecture
+
+```text
                         ┌──────────────────────────────┐
 Internet ──▶ Nginx :80  │  least_conn load balancer    │
                         └───┬───────────┬──────────┬───┘
                             │           │          │
                        app1:5000   app2:5000   app3:5000
-                       (gthread)   (gthread)   (gthread)
+                       (Flask)     (Flask)     (Flask)
                             │           │          │
                         ┌───▼───────────▼──────────▼───┐
-                        │   PgBouncer (conn pool)      │
-                        │   PostgreSQL :5432            │
-                        └──────────────────────────────┘
+                        │   PgBouncer connection pool   │
+                        └───────────────┬───────────────┘
+                                        │
+                                  PostgreSQL :5432
+
                         ┌──────────────────────────────┐
-                        │   Redis :6379  (URL cache)   │
+                        │ Redis :6379 (hot-path cache) │
+                        └──────────────────────────────┘
+
+                        ┌──────────────────────────────┐
+                        │ Prometheus + Alertmanager    │
+                        │ Grafana dashboards           │
                         └──────────────────────────────┘
 ```
 
-## Endpoints
+### Request flow
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/health` | Liveness check → `{"status":"ok"}` |
-| POST | `/shorten` | Create a short URL |
-| GET | `/<code>` | Redirect (cached in Redis) |
-| GET | `/urls` | List active URLs (paginated) |
-| GET | `/urls/<id>` | Get URL by ID |
-| DELETE | `/urls/<id>` | Deactivate URL |
-| GET | `/stats/<code>` | Click stats for a short code |
+1. Client sends request to **Nginx**
+2. Nginx balances traffic across **3 Flask app instances**
+3. Hot redirect paths are served faster with **Redis caching**
+4. Database connections are pooled through **PgBouncer**
+5. Metrics are scraped by **Prometheus**
+6. Dashboards are visualized in **Grafana**
+7. Critical issues trigger **alerts** for incident response
 
-See [`docs/api.md`](docs/api.md) for full request/response details.
+---
 
-## Documentation
+## 🧰 Tech Stack
 
-| Doc | Description |
-|-----|-------------|
-| [docs/api.md](docs/api.md) | Full API reference — all endpoints, request/response shapes |
-| [docs/deploy-guide.md](docs/deploy-guide.md) | How to deploy, update, and rollback |
-| [docs/config.md](docs/config.md) | All environment variables explained |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Common errors and fixes |
-| [docs/runbook.md](docs/runbook.md) | On-call runbook — what to do when alerts fire |
-| [docs/failure-modes.md](docs/failure-modes.md) | Every failure scenario and recovery steps |
-| [docs/decision-log.md](docs/decision-log.md) | Why we chose Redis, Nginx, Peewee, etc. |
-| [docs/capacity-plan.md](docs/capacity-plan.md) | Load limits and scaling strategy |
+### Backend
+- Python
+- Flask
+- Peewee ORM
+- Gunicorn
 
-## **Important**
+### Data Layer
+- PostgreSQL
+- PgBouncer
+- Redis
 
-You need to work with around the seed files that you can find in [MLH PE Hackathon](https://mlh-pe-hackathon.com) platform. This will help you build the schema for the database and have some data to do some testing and submit your project for judging. If you need help with this, reach out on Discord or on the Q&A tab on the platform.
+### Infrastructure
+- Docker Compose
+- Nginx
 
-## Prerequisites
+### Observability
+- Prometheus
+- Alertmanager
+- Grafana
+- Structured JSON logs
 
-- **uv** — a fast Python package manager that handles Python versions, virtual environments, and dependencies automatically.
-  Install it with:
-  ```bash
-  # macOS / Linux
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+### Testing & Validation
+- Pytest
+- pytest-cov
+- Locust
+- GitHub Actions CI
 
-  # Windows (PowerShell)
-  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  ```
-  For other methods see the [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/).
-- PostgreSQL running locally (you can use Docker or a local instance)
+---
 
-## uv Basics
+## 🚀 Key Features
 
-`uv` manages your Python version, virtual environment, and dependencies automatically — no manual `python -m venv` needed.
+### Smart URL Shortening
+Create short URLs, resolve them quickly, list them, deactivate them, and inspect click stats.
 
-| Command | What it does |
-|---------|--------------|
-| `uv sync` | Install all dependencies (creates `.venv` automatically) |
-| `uv run <script>` | Run a script using the project's virtual environment |
-| `uv add <package>` | Add a new dependency |
-| `uv remove <package>` | Remove a dependency |
+### Fast Redirect Path
+Frequently accessed short codes are cached in Redis so redirects avoid repeated database reads.
 
-## Quick Start (Docker — recommended)
+### Horizontal Scaling
+Three app replicas sit behind Nginx, allowing the system to keep serving traffic even when one instance goes down.
 
-Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+### Graceful Failure
+Bad input returns clean JSON errors. Infrastructure failures degrade gracefully where possible instead of crashing the whole service.
 
-```bash
-# 1. Clone & configure
-git clone <repo-url> && cd PE-Hackathon-Template-2026
-cp .env.example .env          # edit DATABASE_PASSWORD if needed
+### Operational Visibility
+The project exposes `/metrics`, ships structured logs, and provides dashboards for traffic, latency, errors, and saturation.
 
-# 2. Build and start everything
-docker compose up --build -d
+### Real Documentation
+This repo includes a deploy guide, troubleshooting guide, runbook, decision log, bottleneck report, capacity plan, and verification notes.
 
-# 3. Seed the database from CSVs
-docker compose exec app1 uv run load_data.py
+---
 
-# 4. Verify
-curl http://localhost/health
-# → {"status":"ok"}
+## 🛡 Production Engineering Highlights
 
-```
+### Reliability
+- `/health` liveness endpoint
+- restart policies for automatic container recovery
+- resilient routing through multiple app instances
+- JSON-only error responses instead of stack traces
 
-### Chaos Demo (Reliability Gold)
-```bash
-# Kill one instance — watch the other keep serving
-docker stop pe-hackathon-template-2026-app1-1
-curl http://localhost/health   # still 200 ✅
-docker compose up -d app1      # resurrects automatically
-```
+### Scalability
+- 3 Flask replicas behind Nginx
+- connection pooling with PgBouncer
+- Redis caching on redirect path
+- Nginx health caching
+- reduced Gunicorn worker count to avoid memory pressure
 
-### Load Test (Scalability Gold)
-```bash
-uv add --dev locust
-uv run locust -f locustfile.py --host http://localhost \
-  --headless -u 500 -r 50 --run-time 2m
-```
+### Performance Optimization
+- async click tracking moved off the redirect hot path
+- optimized insert strategy for short URL creation
+- pooled database connections to reduce connection overhead
 
-## Quick Start (Local dev)
+### Operability
+- runbook for incidents
+- troubleshooting guide for common failures
+- alerting for service down and high error rate
+- dashboard-based root cause analysis workflow
 
-```bash
-# 1. Install dependencies
-uv sync --extra dev
+---
 
-# 2. Create the database
-createdb hackathon_db
+## 📈 Observability & Incident Response
 
-# 3. Configure environment
-cp .env.example .env
+<p align="center">
+  <img src="./docs/screenshots/incident-silver-discord-alert.png" alt="Discord alert screenshot" width="48%" />
+  <img src="./docs/screenshots/incident-silver-alertmanager.png" alt="Alertmanager screenshot" width="48%" />
+</p>
 
-# 4. Run the server
-uv run run.py
+This project tracks the **four golden signals** in Grafana:
 
-# 5. Seed data (optional)
-uv run load_data.py
+- **Latency** — p50 / p95 / p99 response times
+- **Traffic** — requests per second and method distribution
+- **Errors** — 4xx / 5xx trends and alerting thresholds
+- **Saturation** — CPU, RAM, instance health, and active alerts
 
-# 6. Verify
-curl http://localhost:5000/health
-# → {"status":"ok"}
-```
+### Alerting flow
+- Prometheus evaluates alert rules
+- Alertmanager routes incidents
+- Discord receives notifications
+- Runbook guides recovery steps
 
-## Project Structure
+### Example incident handled
+A spike in error rate fired alerts, but dashboards showed low p99 latency and all three instances still up. That pointed to a startup race condition around database readiness rather than an app logic failure — exactly the kind of diagnosis production engineering is about.
 
-```
-mlh-pe-hackathon/
+---
+
+## 🏁 Performance Results
+
+### Bronze Tier — 50 concurrent users
+| Metric | Before | After |
+|--------|--------|-------|
+| Requests/sec | 52.2 | **123.6** |
+| p50 latency | 91 ms | **31 ms** |
+| p95 latency | 950 ms | **380 ms** |
+| p99 latency | 2,400 ms | **840 ms** |
+| Error rate | ~0% | ~0% |
+
+### Silver Tier — 200 concurrent users
+| Metric | Before | After |
+|--------|--------|-------|
+| Requests/sec | 57.7 | **187** |
+| p50 latency | 1,100 ms | **510 ms** |
+| p95 latency | 5,200 ms | **1,300 ms** |
+| p99 latency | 8,600 ms | **2,000 ms** |
+| Error rate | ~0% | **4.25%** |
+
+### Gold Tier — 500 concurrent users
+| Metric | Before | After |
+|--------|--------|-------|
+| Requests/sec | 114.5 | **238.66** |
+| p50 latency | 3,500 ms | **1,700 ms** |
+| p95 latency | 14,000 ms | **3,700 ms** |
+| p99 latency | 27,000 ms | **5,500 ms** |
+| Error rate | ~0% | **1%** |
+
+### Biggest wins
+- **~108% higher throughput** at 500 users
+- **~80% lower p99 latency** at 500 users
+- **75% memory reduction** from worker tuning
+- **< 5% error rate** under 500-user load target
+
+---
+
+## 🖼 Screenshots
+
+### Dashboard & Observability
+<p align="center">
+  <img src="./docs/screenshots/incident-gold-dashboar.png" alt="Grafana dashboard" width="85%" />
+</p>
+
+### Health Checks & CI
+<p align="center">
+  <img src="./docs/screenshots/bronze-health-check.png.png" alt="Health check" width="45%" />
+  <img src="./docs/screenshots/bronze-ci-green.png.png" alt="CI passing" width="45%" />
+</p>
+
+### Load Testing Improvements
+<p align="center">
+  <img src="./docs/screenshots/silver-locust-200-users-before.png" alt="Load test before" width="45%" />
+  <img src="./docs/screenshots/silver-locust-200-users-after.png" alt="Load test after" width="45%" />
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/gold-locust-500-users-before.png" alt="500 users before" width="45%" />
+  <img src="./docs/screenshots/gold-locust-500-users-after.png" alt="500 users after" width="45%" />
+</p>
+
+### Graceful Failure
+<p align="center">
+  <img src="./docs/screenshots/gold-graceful-failure.png" alt="Graceful failure response" width="65%" />
+</p>
+
+---
+
+## 🗂 Project Structure
+
+```text
+PE-Hackathon-Template-2026/
 ├── app/
-│   ├── __init__.py          # App factory (create_app)
-│   ├── database.py          # DatabaseProxy, BaseModel, connection hooks
+│   ├── __init__.py
+│   ├── cache.py
+│   ├── database.py
 │   ├── models/
-│   │   └── __init__.py      # Import your models here
+│   │   ├── event.py
+│   │   ├── url.py
+│   │   └── user.py
 │   └── routes/
-│       └── __init__.py      # register_routes() — add blueprints here
-├── .env.example             # DB connection template
-├── .gitignore               # Python + uv gitignore
-├── .python-version          # Pin Python version for uv
-├── pyproject.toml           # Project metadata + dependencies
-├── run.py                   # Entry point: uv run run.py
+│       ├── events.py
+│       ├── urls.py
+│       └── users.py
+├── docs/
+│   ├── api.md
+│   ├── bottleneck-report.md
+│   ├── capacity-plan.md
+│   ├── config.md
+│   ├── decision-log.md
+│   ├── deploy-guide.md
+│   ├── failure-modes.md
+│   ├── runbook.md
+│   ├── scalability.md
+│   ├── troubleshooting.md
+│   ├── verification.md
+│   └── screenshots/
+├── grafana/
+├── prometheus/
+├── alertmanager/
+├── nginx/
+├── docker-compose.yml
+├── locustfile.py
+├── pyproject.toml
+├── run.py
 └── README.md
 ```
 
-## How to Add a Model
+---
 
-1. Create a file in `app/models/`, e.g. `app/models/product.py`:
+## ⚡ Quick Start
 
-```python
-from peewee import CharField, DecimalField, IntegerField
+### Prerequisites
+- Docker Desktop
+- Python + `uv` (for local dev)
+- PostgreSQL if running without Docker
 
-from app.database import BaseModel
+### Run with Docker
 
+```bash
+git clone <repo-url>
+cd PE-Hackathon-Template-2026
+cp .env.example .env
 
-class Product(BaseModel):
-    name = CharField()
-    category = CharField()
-    price = DecimalField(decimal_places=2)
-    stock = IntegerField()
+docker compose up --build -d
+docker compose exec app1 uv run load_data.py
+curl http://localhost/health
 ```
 
-2. Import it in `app/models/__init__.py`:
+### Local Development
 
-```python
-from app.models.product import Product
+```bash
+uv sync --extra dev
+createdb hackathon_db
+cp .env.example .env
+uv run run.py
+uv run load_data.py
+curl http://localhost:5000/health
 ```
 
-3. Create the table (run once in a Python shell or a setup script):
+---
 
-```python
-from app.database import db
-from app.models.product import Product
+## 🔐 Environment Variables
 
-db.create_tables([Product])
+Example setup:
+
+```env
+DATABASE_NAME=hackathon_db
+DATABASE_USER=postgres
+DATABASE_PASSWORD=postgres
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+REDIS_URL=redis://localhost:6379/0
+BASE_URL=http://localhost
 ```
 
-## How to Add Routes
+For the full configuration reference, see [`docs/config.md`](./docs/config.md).
 
-1. Create a blueprint in `app/routes/`, e.g. `app/routes/products.py`:
+---
 
-```python
-from flask import Blueprint, jsonify
-from playhouse.shortcuts import model_to_dict
+## 🔌 API Overview
 
-from app.models.product import Product
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/health` | Service health check |
+| POST | `/shorten` | Create a shortened URL |
+| GET | `/<code>` | Redirect to original URL |
+| GET | `/urls` | List URLs with pagination |
+| GET | `/urls/<id>` | Fetch one URL |
+| DELETE | `/urls/<id>` | Deactivate a URL |
+| GET | `/stats/<code>` | View click stats |
 
-products_bp = Blueprint("products", __name__)
+Full request/response examples live in [`docs/api.md`](./docs/api.md).
 
+---
 
-@products_bp.route("/products")
-def list_products():
-    products = Product.select()
-    return jsonify([model_to_dict(p) for p in products])
+## 📚 Documentation
+
+| Document | What it Covers |
+|----------|----------------|
+| [`docs/api.md`](./docs/api.md) | Full API reference |
+| [`docs/deploy-guide.md`](./docs/deploy-guide.md) | Deployment, rollout, rollback |
+| [`docs/config.md`](./docs/config.md) | Environment variable details |
+| [`docs/troubleshooting.md`](./docs/troubleshooting.md) | Common issues and fixes |
+| [`docs/runbook.md`](./docs/runbook.md) | Incident response playbook |
+| [`docs/failure-modes.md`](./docs/failure-modes.md) | Failure scenarios and recovery |
+| [`docs/decision-log.md`](./docs/decision-log.md) | Architecture decisions |
+| [`docs/capacity-plan.md`](./docs/capacity-plan.md) | Scaling assumptions and limits |
+| [`docs/bottleneck-report.md`](./docs/bottleneck-report.md) | Performance diagnosis and fixes |
+| [`docs/scalability.md`](./docs/scalability.md) | Bronze / Silver / Gold scaling journey |
+| [`docs/verification.md`](./docs/verification.md) | Reliability and observability proof |
+
+---
+
+## 🎬 Demo Scenarios
+
+### 1. Reliability Demo
+```bash
+docker compose kill app1
+curl http://localhost/health
 ```
+Expected result: service stays up because Nginx routes to healthy instances.
 
-2. Register it in `app/routes/__init__.py`:
-
-```python
-def register_routes(app):
-    from app.routes.products import products_bp
-    app.register_blueprint(products_bp)
+### 2. Graceful Failure Demo
+```bash
+curl -s -X POST http://localhost/shorten \
+  -H "Content-Type: application/json" \
+  -d '{"original_url": 12345}'
 ```
+Expected result: clean JSON validation error, no stack trace.
 
-## How to Load CSV Data
-
-```python
-import csv
-from peewee import chunked
-from app.database import db
-from app.models.product import Product
-
-def load_csv(filepath):
-    with open(filepath, newline="") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    with db.atomic():
-        for batch in chunked(rows, 100):
-            Product.insert_many(batch).execute()
+### 3. Load Test Demo
+```bash
+uv run locust -f locustfile.py --host http://localhost \
+  --headless -u 500 -r 50 --run-time 2m
 ```
+Expected result: strong throughput with monitored latency and low error rate.
 
-## Useful Peewee Patterns
+---
 
-```python
-from peewee import fn
-from playhouse.shortcuts import model_to_dict
+## 🔮 Future Improvements
 
-# Select all
-products = Product.select()
+- Background job queue for event ingestion
+- Rate limiting and abuse protection
+- Authenticated admin dashboard
+- Multi-region caching strategy
+- PostgreSQL read replicas for heavier read traffic
+- Redis Sentinel / Cluster for higher availability
+- OpenTelemetry tracing for distributed diagnostics
 
-# Filter
-cheap = Product.select().where(Product.price < 10)
+---
 
-# Get by ID
-p = Product.get_by_id(1)
+## 👩‍💻 Author / Team Notes
 
-# Create
-Product.create(name="Widget", category="Tools", price=9.99, stock=50)
+Built for the **MLH Production Engineering Hackathon 2026**.
 
-# Convert to dict (great for JSON responses)
-model_to_dict(p)
-
-# Aggregations
-avg_price = Product.select(fn.AVG(Product.price)).scalar()
-total = Product.select(fn.SUM(Product.stock)).scalar()
-
-# Group by
-from peewee import fn
-query = (Product
-         .select(Product.category, fn.COUNT(Product.id).alias("count"))
-         .group_by(Product.category))
-```
-
-## Tips
-
-- Use `model_to_dict` from `playhouse.shortcuts` to convert model instances to dictionaries for JSON responses.
-- Wrap bulk inserts in `db.atomic()` for transactional safety and performance.
-- The template uses `teardown_appcontext` for connection cleanup, so connections are closed even when requests fail.
-- Check `.env.example` for all available configuration options.
+- Juhi Bhandari
+- Esosa Ohangbon
+- Pavan Deepak Malla
