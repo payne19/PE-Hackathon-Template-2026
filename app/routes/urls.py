@@ -272,7 +272,10 @@ def update_url(url_id):
     if "is_active" in data:
         url.is_active = bool(data["is_active"])
         if not url.is_active:
-            cache.delete(f"url:{url.short_code}")
+            try:
+                cache.delete(f"url:{url.short_code}")
+            except Exception:
+                pass
 
     url.updated_at = datetime.now(timezone.utc)
     url.save()

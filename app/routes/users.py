@@ -11,11 +11,14 @@ users_bp = Blueprint("users", __name__, url_prefix="/users")
 
 
 def _user_dict(user):
+    ca = user.created_at
+    if ca and not isinstance(ca, str):
+        ca = ca.strftime("%Y-%m-%dT%H:%M:%S")
     return {
         "id": user.id,
         "username": user.username,
         "email": user.email,
-        "created_at": user.created_at.strftime("%Y-%m-%dT%H:%M:%S") if user.created_at else None,
+        "created_at": ca,
     }
 
 
@@ -106,14 +109,31 @@ def bulk_import_users():
 
     imported = []
     for row in reader:
+        raw_ca = row.get("created_at")
+        if raw_ca:
+            try:
+                created_at = datetime.fromisoformat(raw_ca)
+            except (ValueError, TypeError):
+                created_at = datetime.now(timezone.utc)
+        else:
+            created_at = datetime.now(timezone.utc)
         user, created = User.get_or_create(
             email=row["email"],
             defaults={
                 "username": row["username"],
-                "created_at": row.get("created_at") or datetime.now(timezone.utc),
+                "created_at": created_at,
             },
         )
         if created:
             imported.append(_user_dict(user))
 
     return jsonify(imported=len(imported), count=len(imported)), 201
+
+
+@users_bp.route("/<int:user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    user = User.get_or_none(User.id == user_id)
+    if user is None:
+        return jsonify(error="User not found"), 404
+    user.delete_instance()
+    return jsonify(message="User deleted"), 200
