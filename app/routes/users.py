@@ -117,15 +117,18 @@ def bulk_import_users():
                 created_at = datetime.now(timezone.utc)
         else:
             created_at = datetime.now(timezone.utc)
-        user, created = User.get_or_create(
-            email=row["email"],
-            defaults={
-                "username": row["username"],
-                "created_at": created_at,
-            },
-        )
-        if created:
-            imported.append(_user_dict(user))
+        try:
+            user, created = User.get_or_create(
+                email=row["email"],
+                defaults={
+                    "username": row["username"],
+                    "created_at": created_at,
+                },
+            )
+            if created:
+                imported.append(_user_dict(user))
+        except IntegrityError:
+            continue
 
     return jsonify(imported=len(imported), count=len(imported)), 201
 
