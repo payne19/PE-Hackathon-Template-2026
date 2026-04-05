@@ -141,11 +141,11 @@ locust -f locustfile.py --host http://localhost \
 |--------|--------|-------|--------|
 | Concurrent users | 500 | **500** | — |
 | Total requests | 33,539 | 34,191 | — |
-| Requests/sec | 114.5 | **186** | **+63%** |
+| Requests/sec | 114.5 | **238.66** | **+108%** |
 | p50 latency | 3,500 ms | **1,700 ms** | **-51%** |
 | p95 latency | 14,000 ms | **3,700 ms** | **-74%** |
 | p99 latency | 27,000 ms | **5,500 ms** | **-80%** |
-| Error rate | ~0 % | **3.77 %** | < 5% ✓ |
+| Error rate | ~0 % | **1 %** | < 5% ✓ |
 
 ### Screenshots
 
@@ -168,7 +168,7 @@ locust -f locustfile.py --host http://localhost \
 | Silver (before) | **200** | 58 | 1,100 ms | 5,200 ms | 8,600 ms | ~0 % | + 3 replicas, Nginx LB, PgBouncer |
 | Silver (after) | **200** | **187** | **510 ms** | **1,300 ms** | **2,000 ms** | 4.25 % | + All optimizations |
 | Gold (before) | **500** | 115 | 3,500 ms | 14,000 ms | 27,000 ms | ~0 % | + Redis caching |
-| Gold (after) | **500** | **186** | **1,700 ms** | **3,700 ms** | **5,500 ms** | 3.77 % | + Conn pool, worker reduction, async clicks |
+| Gold (after) | **500** | **238.66** | **1,700 ms** | **3,700 ms** | **5,500 ms** | 1 % | + Conn pool, worker reduction, async clicks |
 
 ---
 
