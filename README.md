@@ -37,6 +37,19 @@ Internet ──▶ Nginx :80  │  least_conn load balancer    │
 
 See [`docs/api.md`](docs/api.md) for full request/response details.
 
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [docs/api.md](docs/api.md) | Full API reference — all endpoints, request/response shapes |
+| [docs/deploy-guide.md](docs/deploy-guide.md) | How to deploy, update, and rollback |
+| [docs/config.md](docs/config.md) | All environment variables explained |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common errors and fixes |
+| [docs/runbook.md](docs/runbook.md) | On-call runbook — what to do when alerts fire |
+| [docs/failure-modes.md](docs/failure-modes.md) | Every failure scenario and recovery steps |
+| [docs/decision-log.md](docs/decision-log.md) | Why we chose Redis, Nginx, Peewee, etc. |
+| [docs/capacity-plan.md](docs/capacity-plan.md) | Load limits and scaling strategy |
+
 ## **Important**
 
 You need to work with around the seed files that you can find in [MLH PE Hackathon](https://mlh-pe-hackathon.com) platform. This will help you build the schema for the database and have some data to do some testing and submit your project for judging. If you need help with this, reach out on Discord or on the Q&A tab on the platform.
