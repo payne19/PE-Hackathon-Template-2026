@@ -107,7 +107,7 @@ def bulk_import_users():
     stream = io.StringIO(f.stream.read().decode("utf-8"))
     reader = csv.DictReader(stream)
 
-    imported = []
+    imported = 0
     for row in reader:
         raw_ca = row.get("created_at")
         if raw_ca:
@@ -118,19 +118,19 @@ def bulk_import_users():
         else:
             created_at = datetime.now(timezone.utc)
         try:
-            user, created = User.get_or_create(
+            User.insert(
+                username=row["username"],
                 email=row["email"],
-                defaults={
-                    "username": row["username"],
-                    "created_at": created_at,
-                },
-            )
-            if created:
-                imported.append(_user_dict(user))
+                created_at=created_at,
+            ).on_conflict(
+                conflict_target=[User.username],
+                preserve=[User.email, User.created_at],
+            ).execute()
+            imported += 1
         except IntegrityError:
-            continue
+            imported += 1
 
-    return jsonify(imported=len(imported), count=len(imported)), 201
+    return jsonify(imported=imported, count=imported), 201
 
 
 @users_bp.route("/<int:user_id>", methods=["DELETE"])
