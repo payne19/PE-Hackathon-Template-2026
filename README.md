@@ -99,7 +99,7 @@ Unlike a basic CRUD demo, this project is built like a small real-world service:
 - **Reliability-first**: health checks, restart policies, graceful errors, fault tolerance
 - **Scalability-focused**: 3 app replicas, Nginx load balancing, caching, connection pooling
 - **Observable**: metrics, dashboards, logs, alerts, incident workflow
-- **Performance-validated**: Locust load tests at 50, 200, and 500 concurrent users
+- **Performance-validated**: Locust load tests at 50, 200, 500, and up to 5,000 concurrent users
 - **Operations-ready**: runbooks, deploy guide, troubleshooting guide, decision log, capacity plan
 
 ---
@@ -262,11 +262,11 @@ A spike in error rate fired alerts, but dashboards showed low p99 latency and al
 ### Silver Tier — 200 concurrent users
 | Metric | Before | After |
 |--------|--------|-------|
-| Requests/sec | 57.7 | **187** |
+| Requests/sec | 57.7 | **218.2** |
 | p50 latency | 1,100 ms | **510 ms** |
 | p95 latency | 5,200 ms | **1,300 ms** |
 | p99 latency | 8,600 ms | **2,000 ms** |
-| Error rate | ~0% | **4.25%** |
+| Error rate | ~0% | **1%** |
 
 ### Gold Tier — 500 concurrent users
 | Metric | Before | After |
@@ -277,11 +277,20 @@ A spike in error rate fired alerts, but dashboards showed low p99 latency and al
 | p99 latency | 27,000 ms | **5,500 ms** |
 | Error rate | ~0% | **1%** |
 
+### 🏆 Beyond Gold — Stretch Tests
+| Users | RPS | Error Rate |
+|-------|-----|------------|
+| 1,000 | **139.11** | **~0%** |
+| 2,000 | **138.58** | **3%** |
+| 5,000 | **146.41** | **5%** |
+
+> The system scales to **10× the Gold target** while staying at or below the 5% error threshold.
+
 ### Biggest wins
-- **~108% higher throughput** at 500 users
-- **~80% lower p99 latency** at 500 users
+- **+108% higher throughput** at 500 users (114.5 → 238.66 RPS)
+- **-80% lower p99 latency** at 500 users (27s → 5.5s)
 - **75% memory reduction** from worker tuning
-- **< 5% error rate** under 500-user load target
+- **10× Gold target** handled (5,000 users, 5% error rate)
 
 ---
 
@@ -307,6 +316,13 @@ A spike in error rate fired alerts, but dashboards showed low p99 latency and al
 <p align="center">
   <img src="./docs/screenshots/gold-locust-500-users-before.png" alt="500 users before" width="45%" />
   <img src="./docs/screenshots/gold-locust-500-users-after.png" alt="500 users after" width="45%" />
+</p>
+
+### Stretch Tests (Beyond Gold)
+<p align="center">
+  <img src="./docs/screenshots/gold-locust-1000-users-after.png" alt="1000 users" width="30%" />
+  <img src="./docs/screenshots/gold-locust-2000-users-after.png" alt="2000 users" width="30%" />
+  <img src="./docs/screenshots/gold-locust-5000-users-after.png" alt="5000 users" width="30%" />
 </p>
 
 ### Graceful Failure

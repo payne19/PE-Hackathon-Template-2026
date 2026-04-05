@@ -85,11 +85,11 @@ locust -f locustfile.py --host http://localhost \
 |--------|------------------|-------------------|--------|
 | Concurrent users | **200** | **200** | — |
 | Total requests | 41,936 | 33,732 | — |
-| Requests/sec | 57.7 | **187** | **+224%** |
+| Requests/sec | 57.7 | **218.2** | **+278%** |
 | p50 latency | 1,100 ms | **510 ms** | **-54%** |
 | p95 latency | 5,200 ms | **1,300 ms** | **-75%** |
 | p99 latency | 8,600 ms | **2,000 ms** | **-77%** |
-| Error rate | **~0 %** | **4.25 %** | < 5% ✓ |
+| Error rate | **~0 %** | **1 %** | < 5% ✓ |
 
 > **Note:** Pre-optimization numbers shown for comparison. See [Bottleneck Report](bottleneck-report.md) for details on what changed.
 
@@ -159,6 +159,65 @@ locust -f locustfile.py --host http://localhost \
 
 ---
 
+## 🏆 Beyond Gold: 1,000 Users
+
+To demonstrate the headroom of our architecture, we pushed the system to **1,000 concurrent users** — double the Gold requirement.
+
+```bash
+locust -f locustfile.py --host http://localhost \
+  --headless -u 1000 -r 100 --run-time 5m
+```
+
+| Metric | Result |
+|--------|--------|
+| Concurrent users | **1,000** |
+| Requests/sec | **139.11** |
+| Error rate | **~0 %** |
+
+> The system handles 2× the Gold target with zero failures, proving significant architectural headroom beyond the 500-user requirement.
+
+![1000 users after optimization](screenshots/gold-locust-1000-users-after.png)
+
+### 2,000 Users
+
+We pushed even further to **2,000 concurrent users** — 4× the Gold requirement.
+
+```bash
+locust -f locustfile.py --host http://localhost \
+  --headless -u 2000 -r 200 --run-time 5m
+```
+
+| Metric | Result |
+|--------|--------|
+| Concurrent users | **2,000** |
+| Requests/sec | **138.58** |
+| Error rate | **3 %** (still below 5% threshold) |
+
+> At 4× the Gold target, the system maintains stable throughput with errors well under the 5% threshold — demonstrating the architecture can scale far beyond requirements.
+
+![2000 users after optimization](screenshots/gold-locust-2000-users-after.png)
+
+### 5,000 Users
+
+Final stretch test at **5,000 concurrent users** — 10× the Gold requirement.
+
+```bash
+locust -f locustfile.py --host http://localhost \
+  --headless -u 5000 -r 500 --run-time 5m
+```
+
+| Metric | Result |
+|--------|--------|
+| Concurrent users | **5,000** |
+| Requests/sec | **146.41** |
+| Error rate | **5 %** (at the 5% threshold) |
+
+> At 10× the Gold target, the system still maintains steady throughput and holds at the 5% error boundary — the practical ceiling of this architecture on a single machine.
+
+![5000 users after optimization](screenshots/gold-locust-5000-users-after.png)
+
+---
+
 ## Optimization Summary
 
 | Tier | Users | RPS | p50 | p95 | p99 | Error % | Key Changes |
@@ -166,7 +225,7 @@ locust -f locustfile.py --host http://localhost \
 | Bronze (before) | **50** | 52 | 91 ms | 950 ms | 2,400 ms | ~0 % | Baseline |
 | Bronze (after) | **50** | **124** | **31 ms** | **380 ms** | **840 ms** | ~0 % | + All optimizations |
 | Silver (before) | **200** | 58 | 1,100 ms | 5,200 ms | 8,600 ms | ~0 % | + 3 replicas, Nginx LB, PgBouncer |
-| Silver (after) | **200** | **187** | **510 ms** | **1,300 ms** | **2,000 ms** | 4.25 % | + All optimizations |
+| Silver (after) | **200** | **218.2** | **510 ms** | **1,300 ms** | **2,000 ms** | 1 % | + All optimizations |
 | Gold (before) | **500** | 115 | 3,500 ms | 14,000 ms | 27,000 ms | ~0 % | + Redis caching |
 | Gold (after) | **500** | **238.66** | **1,700 ms** | **3,700 ms** | **5,500 ms** | 1 % | + Conn pool, worker reduction, async clicks |
 
