@@ -12,7 +12,7 @@ users_bp = Blueprint("users", __name__, url_prefix="/users")
 
 def _user_dict(user):
     ca = user.created_at
-    if ca and not isinstance(ca, str):
+    if ca and hasattr(ca, "strftime"):
         ca = ca.strftime("%Y-%m-%dT%H:%M:%S")
     return {
         "id": user.id,
@@ -98,6 +98,15 @@ def update_user(user_id):
     return jsonify(_user_dict(user))
 
 
+@users_bp.route("/<int:user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    user = User.get_or_none(User.id == user_id)
+    if user is None:
+        return jsonify(error="User not found"), 404
+    user.delete_instance(recursive=True)
+    return jsonify(message="User deleted", id=user_id)
+
+
 @users_bp.route("/bulk", methods=["POST"])
 def bulk_import_users():
     if "file" not in request.files:
@@ -107,36 +116,18 @@ def bulk_import_users():
     stream = io.StringIO(f.stream.read().decode("utf-8"))
     reader = csv.DictReader(stream)
 
-    imported = 0
-    for row in reader:
-        raw_ca = row.get("created_at")
-        if raw_ca:
-            try:
-                created_at = datetime.fromisoformat(raw_ca)
-            except (ValueError, TypeError):
-                created_at = datetime.now(timezone.utc)
-        else:
-            created_at = datetime.now(timezone.utc)
-        try:
-            User.insert(
-                username=row["username"],
-                email=row["email"],
-                created_at=created_at,
-            ).on_conflict(
-                conflict_target=[User.username],
-                preserve=[User.email, User.created_at],
-            ).execute()
-            imported += 1
-        except IntegrityError:
-            imported += 1
+    rows = list(reader)
+    for row in rows:
+        (User
+         .insert(
+             username=row["username"],
+             email=row["email"],
+             created_at=row.get("created_at") or datetime.now(timezone.utc),
+         )
+         .on_conflict(
+             conflict_target=[User.username],
+             preserve=[User.email, User.created_at],
+         )
+         .execute())
 
-    return jsonify(imported=imported, count=imported), 201
-
-
-@users_bp.route("/<int:user_id>", methods=["DELETE"])
-def delete_user(user_id):
-    user = User.get_or_none(User.id == user_id)
-    if user is None:
-        return jsonify(error="User not found"), 404
-    user.delete_instance()
-    return jsonify(message="User deleted"), 200
+    return jsonify(imported=len(rows), count=len(rows)), 201

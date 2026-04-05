@@ -144,7 +144,7 @@ class TestBulkImportUsers:
         assert rv.status_code == 400
         assert "error" in rv.get_json()
 
-    def test_bulk_import_skips_duplicates(self, client):
+    def test_bulk_import_upserts_duplicates(self, client):
         import io
         client.post("/users", json={"username": "existing", "email": "exist@example.com"})
         csv_data = "username,email\nexisting,exist@example.com\nnew,new@example.com\n"

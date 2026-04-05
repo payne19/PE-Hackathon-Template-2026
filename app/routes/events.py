@@ -30,8 +30,7 @@ def _event_dict(event):
 def list_events():
     url_id = request.args.get("url_id", type=int)
     user_id = request.args.get("user_id", type=int)
-
-    event_type = request.args.get("event_type", type=str)
+    event_type = request.args.get("event_type")
 
     query = Event.select()
     if url_id:
@@ -52,14 +51,12 @@ def create_event():
         return jsonify(error="Request body must be JSON"), 400
 
     url_id = data.get("url_id")
-    if url_id is None:
-        return jsonify(error="url_id is required"), 422
-
+    user_id = data.get("user_id")
     event_type = data.get("event_type")
+
     if not event_type:
         return jsonify(error="event_type is required"), 422
 
-    user_id = data.get("user_id")
     details = data.get("details")
     if details and not isinstance(details, str):
         details = json.dumps(details)

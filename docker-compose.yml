@@ -106,5 +106,53 @@ services:
       - app2
       - app3
 
+  grafana:
+    image: grafana/grafana:10.4.0
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    restart: always
+    volumes:
+      - ./prometheus:/etc/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - app1
+      - app2
+      - app3
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    restart: always
+    volumes:
+      - ./alertmanager:/etc/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    ports:
+      - "9093:9093"
+
+  alertmanager-discord:
+    image: benjojo/alertmanager-discord
+    restart: always
+    environment:
+      DISCORD_WEBHOOK: "https://discordapp.com/api/webhooks/1490136148511686670/3h1yLRYGamC2fHUDiIicDtynd25N5O8Fg4fJhzt5gyekw0gtiueYjnsl6vVC2bAvYD6D"
+      DISCORD_USERNAME: "AlertBot"
+    expose:
+      - "9094"
+
 volumes:
   pgdata:
+  grafana-data:
