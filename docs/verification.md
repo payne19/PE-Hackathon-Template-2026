@@ -58,3 +58,25 @@ All requests are logged in structured JSON format with `timestamp`, `level`, `me
 Prometheus metrics exposed at `/metrics` showing CPU usage, RAM, GC stats, Flask request counts, and app info.
 
 ![Metrics Page](screenshots/incident-bronze-metrics.png)
+
+---
+
+## Incident Response — Silver Tier: The Alarm
+
+### Alert Configuration
+Prometheus alert rules configured for:
+- `ServiceDown` — fires within 30s when any app instance is unreachable (severity: critical)
+- `HighErrorRate` — fires when exception rate exceeds threshold for 1 minute (severity: warning)
+
+Alert rules: [prometheus/alerts.yml](../prometheus/alerts.yml)
+Alertmanager config: [alertmanager/alertmanager.yml](../alertmanager/alertmanager.yml)
+
+### Alertmanager Firing Alert
+Alert visible in Alertmanager UI routed to the Discord receiver.
+
+![Alertmanager Alert](screenshots/incident-silver-alertmanager.png)
+
+### Discord Notification
+Alert delivered to Discord channel within 30 seconds of the service going down.
+
+![Discord Alert](screenshots/incident-silver-discord-alert.png)

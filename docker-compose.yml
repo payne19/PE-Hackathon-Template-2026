@@ -131,7 +131,7 @@ services:
       - "9093:9093"
 
   alertmanager-discord:
-    image: rogerrum/alertmanager-discord:1.0.4
+    image: benjojo/alertmanager-discord
     restart: always
     environment:
       DISCORD_WEBHOOK: "https://discordapp.com/api/webhooks/1490136148511686670/3h1yLRYGamC2fHUDiIicDtynd25N5O8Fg4fJhzt5gyekw0gtiueYjnsl6vVC2bAvYD6D"
