@@ -1,0 +1,21 @@
+groups:
+  - name: url-shortener
+    rules:
+      - alert: ServiceDown
+        expr: up{job="url-shortener"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "App instance down: {{ $labels.instance }}"
+          description: "Instance {{ $labels.instance }} has been unreachable for more than 30 seconds."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(flask_http_request_exceptions_total[2m])) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate detected"
+          description: "Exception rate has exceeded threshold for more than 1 minute."
