@@ -3,7 +3,7 @@ import string
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, redirect, request
+from flask import Blueprint, current_app, jsonify, redirect, request
 from peewee import IntegrityError
 
 from app.cache import cache
@@ -148,7 +148,10 @@ def redirect_short(code):
         except Exception:
             pass
 
-    _click_pool.submit(_record_click, cached["id"])
+    if current_app.testing:
+        _record_click(cached["id"])
+    else:
+        _click_pool.submit(_record_click, cached["id"])
 
     return redirect(cached["original_url"], code=302)
 

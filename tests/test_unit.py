@@ -183,10 +183,12 @@ class TestGetCachedUrl:
 
 class TestShortenExhaustedCodes:
     def test_returns_500_when_all_candidates_taken(self, client):
+        from peewee import IntegrityError
+
         from app.routes import urls as urls_module
-        mock_qs = MagicMock()
-        mock_qs.where.return_value.exists.return_value = True
-        with patch.object(urls_module.URL, "select", return_value=mock_qs):
+        with patch.object(
+            urls_module.URL, "create", side_effect=IntegrityError("duplicate")
+        ):
             rv = client.post("/shorten", json={"original_url": "https://example.com"})
         assert rv.status_code == 500
         assert "error" in rv.get_json()
